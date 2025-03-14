@@ -1,9 +1,9 @@
-streamlit==1.25.0  # 最新の安定バージョンを推奨します（2023年10月時点）  
-numpy==1.23.4  # バージョンは環境に依存しますので適宜調整してください  
-librosa==0.10.0.post2  
-SoundFile==0.10.3.post1  # or soundfile  
-speechrecognition==3.8.1  
-pydub==0.25.1  
-matplotlib==3.7.1  
-ffmpeg-python==0.2.0  # FFmpeg用のPythonラッパー  
-pathlib==1.0.1  
+streamlit
+numpy
+librosa
+SoundFile
+speechrecognition
+pydub
+matplotlib
+ffmpeg-python
+pathlib
