@@ -188,6 +188,73 @@ def get_binary_file_downloader_html(bin_file, file_label='File'):
     bin_str = base64.b64encode(data).decode()  
     href = f'<a href="data:application/octet-stream;base64,{bin_str}" download="{os.path.basename(bin_file)}">{file_label}</a>'  
     return href  
+
+# 音声ファイルから指定された文字部分の音声部分をカットする関数  
+def cut_audio_by_transcript(transcript, segments, audio_segment, keywords, sr):  
+    for keyword in keywords:  
+        for start, end in get_keyword_timestamps(transcript, segments, keyword, sr):  
+            audio_segment = audio_segment[:start * 1000] + audio_segment[end * 1000:]  
+    return audio_segment  
+  
+# キーワードが見つかる時間（秒）範囲を返す関数  
+def get_keyword_timestamps(transcript, segments, keyword, sr):  
+    timestamps = []  
+    start_time = 0  
+    for segment in segments:  
+        start, end = segment  
+        text = transcribe_audio_partial(audio_path, language_code[language], start, end, sr)  
+        if keyword in text:  
+            keyword_start = start_time + text.find(keyword) / len(text)  
+            keyword_end = keyword_start + len(keyword) / len(text)  
+            timestamps.append((keyword_start, keyword_end))  
+        start_time += (end - start) / sr  
+    return timestamps  
+
+# キーワードでのカットを行う関数  
+def cut_audio_by_transcript(transcript, segments, audio_segment, keywords, sr):  
+    for keyword in keywords:  
+        segments_to_cut = get_keyword_timestamps(transcript, segments, keyword, sr)  
+        for start, end in reversed(segments_to_cut):  
+            audio_segment = audio_segment[:start * 1000] + audio_segment[end * 1000:]  
+    return audio_segment  
+  
+# キーワードが見つかる時間（秒）範囲を返す関数  
+def get_keyword_timestamps(transcript, segments, keyword, sr):  
+    timestamps = []  
+    complete_text = transcript  
+    start_time = 0  
+    for segment in segments:  
+        start, end = segment  
+        text = complete_text[start:end]  
+        text = text.lower()  
+        keyword = keyword.lower()  # 小文字に変更して比較  
+        if keyword in text:  
+            keyword_start = start_time + (text.find(keyword) * (end - start)) / len(text)  
+            keyword_end = keyword_start + (len(keyword) * (end - start)) / len(text)  
+            timestamps.append((keyword_start, keyword_end))  
+        start_time += (end - start) / sr  
+    return timestamps  
+  
+# サブセグメントの文字起こしを行う部分関数  
+def transcribe_audio_partial(audio_segment, language_code, start, end, sr):  
+    partial_audio = audio_segment[start:end]  
+    with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{st.session_state.original_audio_format}') as tmp_file:  
+        partial_audio.export(tmp_file.name, format=st.session_state.original_audio_format)  
+        recognizer = sr.Recognizer()  
+        audio_file = sr.AudioFile(tmp_file.name)  
+        with audio_file as source:  
+            audio_data = recognizer.record(source)  
+            text = recognizer.recognize_google(audio_data, language=language_code)  
+    return text  
+  
+# この部分のコードを追加・修正した後、再度実行してください。  
+# エラーハンドリング  
+try:  
+    # アプリのメイン処理をすでに実行済み  
+    pass  
+except Exception as e:  
+    st.error(f"エラーが発生しました: {str(e)}")  
+    st.error("アプリを再読み込みしてください。")  
   
 # タブの作成  
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["音声分析", "編集", "プレビュー", "エクスポート", "プロジェクト管理"])  
@@ -467,73 +534,6 @@ def cleanup_temp_files():
             shutil.rmtree(st.session_state.temp_dir)  
         except Exception as e:  
             pass  
-
-# 音声ファイルから指定された文字部分の音声部分をカットする関数  
-def cut_audio_by_transcript(transcript, segments, audio_segment, keywords, sr):  
-    for keyword in keywords:  
-        for start, end in get_keyword_timestamps(transcript, segments, keyword, sr):  
-            audio_segment = audio_segment[:start * 1000] + audio_segment[end * 1000:]  
-    return audio_segment  
-  
-# キーワードが見つかる時間（秒）範囲を返す関数  
-def get_keyword_timestamps(transcript, segments, keyword, sr):  
-    timestamps = []  
-    start_time = 0  
-    for segment in segments:  
-        start, end = segment  
-        text = transcribe_audio_partial(audio_path, language_code[language], start, end, sr)  
-        if keyword in text:  
-            keyword_start = start_time + text.find(keyword) / len(text)  
-            keyword_end = keyword_start + len(keyword) / len(text)  
-            timestamps.append((keyword_start, keyword_end))  
-        start_time += (end - start) / sr  
-    return timestamps  
-
-# キーワードでのカットを行う関数  
-def cut_audio_by_transcript(transcript, segments, audio_segment, keywords, sr):  
-    for keyword in keywords:  
-        segments_to_cut = get_keyword_timestamps(transcript, segments, keyword, sr)  
-        for start, end in reversed(segments_to_cut):  
-            audio_segment = audio_segment[:start * 1000] + audio_segment[end * 1000:]  
-    return audio_segment  
-  
-# キーワードが見つかる時間（秒）範囲を返す関数  
-def get_keyword_timestamps(transcript, segments, keyword, sr):  
-    timestamps = []  
-    complete_text = transcript  
-    start_time = 0  
-    for segment in segments:  
-        start, end = segment  
-        text = complete_text[start:end]  
-        text = text.lower()  
-        keyword = keyword.lower()  # 小文字に変更して比較  
-        if keyword in text:  
-            keyword_start = start_time + (text.find(keyword) * (end - start)) / len(text)  
-            keyword_end = keyword_start + (len(keyword) * (end - start)) / len(text)  
-            timestamps.append((keyword_start, keyword_end))  
-        start_time += (end - start) / sr  
-    return timestamps  
-  
-# サブセグメントの文字起こしを行う部分関数  
-def transcribe_audio_partial(audio_segment, language_code, start, end, sr):  
-    partial_audio = audio_segment[start:end]  
-    with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{st.session_state.original_audio_format}') as tmp_file:  
-        partial_audio.export(tmp_file.name, format=st.session_state.original_audio_format)  
-        recognizer = sr.Recognizer()  
-        audio_file = sr.AudioFile(tmp_file.name)  
-        with audio_file as source:  
-            audio_data = recognizer.record(source)  
-            text = recognizer.recognize_google(audio_data, language=language_code)  
-    return text  
-  
-# この部分のコードを追加・修正した後、再度実行してください。  
-# エラーハンドリング  
-try:  
-    # アプリのメイン処理をすでに実行済み  
-    pass  
-except Exception as e:  
-    st.error(f"エラーが発生しました: {str(e)}")  
-    st.error("アプリを再読み込みしてください。")  
   
 # アプリのフッター情報  
 st.markdown("---")  
