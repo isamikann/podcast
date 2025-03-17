@@ -1,6 +1,5 @@
 import os  
 import tempfile  
-import time  
 import json  
 import datetime  
 import numpy as np  
@@ -11,7 +10,6 @@ from pydub import AudioSegment, silence, effects
 import matplotlib.pyplot as plt  
 import subprocess  
 import shutil  
-from pathlib import Path  
 import base64  
 import streamlit as st  
   
@@ -204,12 +202,12 @@ def create_mp4(audio_path, output_path):
     cmd = [  
         'ffmpeg', '-y',  
         '-loop', '1',  
-        '-i', image_src,  
-        '-i', st.session_state.processed_audio,  
+        '-i', image_path,  
+        '-i', audio_path,  
         '-c:v', 'libx264',  
         '-tune', 'stillimage',  
         '-c:a', 'aac',  
-        '-b:a', selected_quality,  
+        '-b:a', '192k',  
         '-pix_fmt', 'yuv420p',  
         '-shortest',  
         output_path  
@@ -379,15 +377,15 @@ with tab4:
                         '-i', st.session_state.processed_audio,  
                         '-c:v', 'libx264',  
                         '-tune', 'stillimage',  
-                        '-c:a', 'aac
-                                            '-b:a', selected_quality,  
+                        '-c:a', 'aac',  
+                        '-b:a', selected_quality,  
                         '-pix_fmt', 'yuv420p',  
                         '-shortest',  
                         output_file  
                     ]  
                     subprocess.run(cmd, check=True)  
                 else:  
-                    output_file = os.path.join(st.session_state.temp_dir, f"podcast_output.{export_format.lower()}")  
+                                        output_file = os.path.join(st.session_state.temp_dir, f"podcast_output.{export_format.lower()}")  
                     audio = AudioSegment.from_file(st.session_state.processed_audio)  
                     export_params = {}  
                     if export_format == "MP3":  
@@ -538,7 +536,7 @@ with st.expander("使い方ガイド"):
       - 「編集」タブの「音声を自動処理」ボタンで自動編集を実行します。  
       - 編集設定はサイドバーで調整可能です。  
       - セグメント情報が表示され、個別にカスタマイズできます。  
-      - 「キーワードでカット」ボタンで特定のキーワードを含むセグメントをカットできます。  
+      - 「高度なオプション」でさらに詳細な編集が可能です。  
   
     4. **プレビュー**  
       - 「プレビュー」タブで処理結果を確認します。  
