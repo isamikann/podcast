@@ -1,5 +1,6 @@
 import os  
 import tempfile  
+import time  
 import json  
 import datetime  
 import numpy as np  
@@ -10,9 +11,10 @@ from pydub import AudioSegment, silence, effects
 import matplotlib.pyplot as plt  
 import subprocess  
 import shutil  
+from pathlib import Path  
 import base64  
 import streamlit as st  
-  
+
 # セッション状態の初期化関数  
 def initialize_session_state():  
     if 'audio_data' not in st.session_state:  
@@ -29,8 +31,6 @@ def initialize_session_state():
         st.session_state.processed_audio = None  
     if 'temp_dir' not in st.session_state:  
         st.session_state.temp_dir = tempfile.mkdtemp()  
-    if 'original_audio_format' not in st.session_state:  
-        st.session_state.original_audio_format = None  
   
 initialize_session_state()  
   
@@ -44,80 +44,6 @@ def upload_audio_file():
     return st.sidebar.file_uploader("音声ファイルをアップロード", type=['wav', 'mp3', 'ogg', 'flac'])  
   
 uploaded_file = upload_audio_file()  
-  
-# FFmpegを使って音声ファイルをWAVに変換する関数  
-def convert_to_wav(file_path, output_path):  
-    try:  
-        # FFmpegでファイルをWAV形式に変換  
-        cmd = ["ffmpeg", "-y", "-i", file_path, output_path]  
-        subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)  
-        return True  
-    except subprocess.CalledProcessError as e:  
-        st.error(f"FFmpegによる変換エラー: {e.stderr.decode()}")  
-        return False  
-  
-# 音声ファイル読み込み関数  
-def load_audio(file):  
-    try:  
-        with tempfile.NamedTemporaryFile(delete=False) as tmp_file:  
-            tmp_file.write(file.read())  
-            tmp_path = tmp_file.name  
-  
-            temp_export_path = os.path.join(st.session_state.temp_dir, "temp.wav")  
-            if not convert_to_wav(tmp_path, temp_export_path):  
-                return None, None, None, None  
-  
-            y, sr = librosa.load(temp_export_path, sr=None)  
-            y = np.array(y)  # ここで numpy 配列に変換  
-            audio_segment = AudioSegment.from_wav(temp_export_path)  
-            ext = os.path.splitext(file.name)[1][1:]  # 拡張子の取得（例: 'mp3'）  
-            st.session_state.original_audio_format = ext  
-  
-            return y, sr, temp_export_path, audio_segment  
-  
-    except Exception as e:  
-        st.error(f"音声ファイルの読み込みエラー (全体): {e}")  
-        return None, None, None, None  
-  
-# 波形表示関数  
-def plot_waveform(y, sr):  
-    try:  
-        fig, ax = plt.subplots(figsize=(10, 2))  
-        if isinstance(y, np.ndarray):  
-            librosa.display.waveshow(y, sr=sr, ax=ax)  
-        else:  
-            raise ValueError("音声データが適切なフォーマットではありません")  
-        ax.set_title('音声波形')  
-        ax.set_xlabel('時間 (秒)')  
-        ax.set_ylabel('振幅')  
-        return fig  
-    except Exception as e:  
-        st.error(f"波形のプロット中にエラーが発生しました: {str(e)}")  
-        return None  
-  
-# 音声認識と文字起こし関数  
-@st.cache_data  
-def transcribe_audio(audio_path, language_code):  
-    try:  
-        recognizer = sr.Recognizer()  
-        audio_file = sr.AudioFile(audio_path)  
-        with audio_file as source:  
-            audio_data = recognizer.record(source)  
-            text = recognizer.recognize_google(audio_data, language=language_code)  
-        return text  
-    except Exception as e:  
-        return f"文字起こしエラー: {str(e)}"  
-  
-if uploaded_file is not None:  
-    y, sr, wav_path, audio_segment = load_audio(uploaded_file)  
-    if y is not None and sr is not None and wav_path is not None and audio_segment is not None:  
-        st.session_state.audio_data = audio_segment  
-        st.session_state.waveform = y  
-        st.session_state.sr = sr  
-  
-        st.audio(wav_path)  
-        fig = plot_waveform(y, sr)  
-        st.pyplot(fig)  
   
 # 音声処理パラメータ設定関数  
 def set_audio_parameters():  
@@ -152,6 +78,39 @@ language_code = {
     "英語": "en-US",  
     "スペイン語": "es-ES"  
 }  
+  
+# 音声ファイル読み込み関数  
+def load_audio(file):  
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tmp_file:  
+        tmp_file.write(file.getvalue())  
+        tmp_path = tmp_file.name  
+        audio_segment = AudioSegment.from_file(tmp_path)  
+        wav_path = os.path.join(st.session_state.temp_dir, "original.wav")  
+        audio_segment.export(wav_path, format="wav")  
+        y, sr = librosa.load(wav_path, sr=None)  
+        return y, sr, wav_path, audio_segment  
+  
+# 波形表示関数  
+def plot_waveform(y, sr):  
+    fig, ax = plt.subplots(figsize=(10, 2))  
+    librosa.display.waveshow(y, sr=sr, ax=ax)  
+    ax.set_title('音声波形')  
+    ax.set_xlabel('時間 (秒)')  
+    ax.set_ylabel('振幅')  
+    return fig  
+  
+# 音声認識と文字起こし関数  
+@st.cache_data  
+def transcribe_audio(audio_path, language_code):  
+    try:  
+        recognizer = sr.Recognizer()  
+        audio_file = sr.AudioFile(audio_path)  
+        with audio_file as source:  
+            audio_data = recognizer.record(source)  
+            text = recognizer.recognize_google(audio_data, language=language_code)  
+        return text  
+    except Exception as e:  
+        return f"文字起こしエラー: {str(e)}"  
   
 # セグメント化関数  
 def segment_audio(audio_segment, silence_thresh, min_silence_len):  
@@ -239,13 +198,10 @@ def process_uploaded_file(uploaded_file):
         try:  
             with st.spinner('音声ファイルを読み込んでいます...'):  
                 y, sr, wav_path, audio_segment = load_audio(uploaded_file)  
-                if y is not None:  
-                    st.session_state.audio_data = audio_segment  
-                    st.session_state.waveform = y  
-                    st.session_state.sr = sr  
-                    return wav_path  
-                else:  
-                    st.error("音声データの読み込みに失敗しました")  
+                st.session_state.audio_data = audio_segment  
+                st.session_state.waveform = y  
+                st.session_state.sr = sr  
+                return wav_path  
         except Exception as e:  
             st.error(f"音声ファイルの処理中にエラーが発生しました: {e}")  
   
@@ -258,8 +214,7 @@ with tab1:
         st.audio(wav_path)  
         st.write("波形分析")  
         fig = plot_waveform(st.session_state.waveform, st.session_state.sr)  
-        if fig is not None:  
-            st.pyplot(fig)  
+        st.pyplot(fig)  
         if st.button("文字起こしを実行"):  
             with st.spinner('文字起こしを実行中...'):  
                 text = transcribe_audio(wav_path, language_code[language])  
@@ -283,42 +238,34 @@ with tab1:
                 ax.set_title("話者識別結果")  
                 ax.legend(colors.keys())  
                 st.pyplot(fig)  
-  
+                  
 with tab2:  
-    st.subheader("音声編集")  
-  
     if st.button("音声を自動処理"):  
-        try:  
-            with st.spinner('処理中...'):  
-                y_reduced = reduce_noise(st.session_state.waveform, st.session_state.sr, noise_reduction)  
-                noise_reduced_path = os.path.join(st.session_state.temp_dir, f"noise_reduced.wav")  
-                sf.write(noise_reduced_path, y_reduced, st.session_state.sr)  
-                processed_audio = AudioSegment.from_file(noise_reduced_path)  
-                st.session_state.audio_data = processed_audio  # ここで session_state の audio_data を更新する  
-                if volume_normalize:  
-                    processed_audio = normalize_audio(processed_audio)  
-                segments = segment_audio(processed_audio, silence_threshold, min_silence_duration)  
-                st.session_state.segments = segments  
-                final_audio = add_sound_effects(processed_audio, intro_music, add_transitions, segments)  
-                processed_path = os.path.join(st.session_state.temp_dir, f"processed.{st.session_state.original_audio_format}")  
-                final_audio.export(processed_path, format=st.session_state.original_audio_format)  
-                st.session_state.processed_audio = processed_path  
-                st.success("処理が完了しました！")  
-        except Exception as e:  
-            st.error(f"音声処理中にエラーが発生しました: {str(e)}")  
-  
+        with st.spinner('処理中...'):  
+            y_reduced = reduce_noise(st.session_state.waveform, st.session_state.sr, noise_reduction)  
+            noise_reduced_path = os.path.join(st.session_state.temp_dir, f"noise_reduced.{st.session_state.original_audio_format}")  
+            sf.write(noise_reduced_path, y_reduced, st.session_state.sr)  
+            processed_audio = AudioSegment.from_file(noise_reduced_path)  
+            st.session_state.audio_data = processed_audio  # ここで session_state の audio_data を更新する  
+            if volume_normalize:  
+                processed_audio = normalize_audio(processed_audio)  
+            segments = segment_audio(processed_audio, silence_threshold, min_silence_duration)  
+            st.session_state.segments = segments  
+            final_audio = add_sound_effects(processed_audio, intro_music, add_transitions, segments)  
+            processed_path = os.path.join(st.session_state.temp_dir, f"processed.{st.session_state.original_audio_format}")  
+            final_audio.export(processed_path, format=st.session_state.original_audio_format)  
+            st.session_state.processed_audio = processed_path  
+            st.success("処理が完了しました！")  
+      
     # キーワードを入力してカット  
     keywords_to_cut = st.text_input("カットするキーワード（カンマ区切りで複数指定可能）").split(',')  
     if st.button("キーワードでカット"):  
-        try:  
-            with st.spinner('キーワードでカット中...'):  
-                final_audio = cut_audio_by_transcript(st.session_state.transcript, st.session_state.segments, st.session_state.audio_data, keywords_to_cut, st.session_state.sr)  
-                processed_path = os.path.join(st.session_state.temp_dir, f"cut_processed.wav")  
-                final_audio.export(processed_path, format=st.session_state.original_audio_format)  
-                st.session_state.processed_audio = processed_path  
-                st.success("キーワードでカットが完了しました！")  
-        except Exception as e:  
-            st.error(f"キーワードカット中にエラーが発生しました: {str(e)}")  
+        with st.spinner('キーワードでカット中...'):  
+            final_audio = cut_audio_by_transcript(st.session_state.transcript, st.session_state.segments, st.session_state.audio_data, keywords_to_cut, st.session_state.sr)  
+            processed_path = os.path.join(st.session_state.temp_dir, f"cut_processed.{st.session_state.original_audio_format}")  
+            final_audio.export(processed_path, format=st.session_state.original_audio_format)  
+            st.session_state.processed_audio = processed_path  
+            st.success("キーワードでカットが完了しました！")  
   
 with tab3:  
     st.subheader("プレビュー")  
@@ -432,6 +379,23 @@ with tab5:
         else:  
             st.info("保存されたプロジェクトがありません。")  
   
+def identify_speakers(audio_path, num_speakers=2):  
+    y, sr = librosa.load(audio_path, sr=None)  
+    segments = []  
+    window_size = len(y) // 10  
+    for i in range(0, len(y), window_size):  
+        end = min(i + window_size, len(y))  
+        segment = y[i:end]  
+        mean = np.mean(segment)  
+        var = np.var(segment)  
+        speaker = "話者A" if (mean + var) > 0 else "話者B"  
+        segments.append({  
+            "start": i / sr,  
+            "end": end / sr,  
+            "speaker": speaker  
+        })  
+    return segments  
+  
 def save_project(project_name):  
     project_dir = os.path.join(os.path.expanduser("~"), "podcast_editor_projects")  
     os.makedirs(project_dir, exist_ok=True)  
@@ -480,13 +444,30 @@ def load_project(project_file):
     st.session_state.transcript = project_info["transcript"]  
     return project_info  
   
+def identify_speakers(audio_path, num_speakers=2):  
+    y, sr = librosa.load(audio_path, sr=None)  
+    segments = []  
+    window_size = len(y) // 10  
+    for i in range(0, len(y), window_size):  
+        end = min(i + window_size, len(y))  
+        segment = y[i:end]  
+        mean = np.mean(segment)  
+        var = np.var(segment)  
+        speaker = "話者A" if (mean + var) > 0 else "話者B"  
+        segments.append({  
+            "start": i / sr,  
+            "end": end / sr,  
+            "speaker": speaker  
+        })  
+    return segments  
+  
 def cleanup_temp_files():  
     if 'temp_dir' in st.session_state and os.path.exists(st.session_state.temp_dir):  
         try:  
             shutil.rmtree(st.session_state.temp_dir)  
         except Exception as e:  
             pass  
-  
+
 # 音声ファイルから指定された文字部分の音声部分をカットする関数  
 def cut_audio_by_transcript(transcript, segments, audio_segment, keywords, sr):  
     for keyword in keywords:  
@@ -500,10 +481,10 @@ def get_keyword_timestamps(transcript, segments, keyword, sr):
     start_time = 0  
     for segment in segments:  
         start, end = segment  
-        text = transcribe_audio_partial(st.session_state.audio_data, language_code, start, end, sr)  
+        text = transcribe_audio_partial(audio_path, language_code[language], start, end, sr)  
         if keyword in text:  
-            keyword_start = start_time + (text.find(keyword) / len(text)) * (end - start) / sr  
-            keyword_end = keyword_start + (len(keyword) / len(text)) * (end - start) / sr  
+            keyword_start = start_time + text.find(keyword) / len(text)  
+            keyword_end = keyword_start + len(keyword) / len(text)  
             timestamps.append((keyword_start, keyword_end))  
         start_time += (end - start) / sr  
     return timestamps  
@@ -511,8 +492,8 @@ def get_keyword_timestamps(transcript, segments, keyword, sr):
 # サブセグメントの文字起こしを行う部分関数  
 def transcribe_audio_partial(audio_segment, language_code, start, end, sr):  
     partial_audio = audio_segment[start:end]  
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tmp_file:  # 一時的にWAV形式で保存  
-        partial_audio.export(tmp_file.name, format="wav")  
+    with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{st.session_state.original_audio_format}') as tmp_file:  # 元の形式を使用  
+        partial_audio.export(tmp_file.name, format=st.session_state.original_audio_format)  
         recognizer = sr.Recognizer()  
         audio_file = sr.AudioFile(tmp_file.name)  
         with audio_file as source:  
@@ -533,33 +514,33 @@ atexit.register(cleanup_temp_files)
 with st.expander("使い方ガイド"):  
     st.write("""  
     ### ポッドキャスト自動音声編集アプリの使い方  
-  
+      
     1. **音声ファイルのアップロード**  
-      - サイドバーの「ファイルのアップロード」セクションから音声ファイルをアップロードします。  
-      - WAV, MP3, OGG, FLACフォーマットに対応しています。  
-  
+       - サイドバーの「ファイルのアップロード」セクションから音声ファイルをアップロードします。  
+       - WAV, MP3, OGG, FLACフォーマットに対応しています。  
+      
     2. **音声分析**  
-      - 「音声分析」タブで波形を確認します。  
-      - 「文字起こしを実行」ボタンをクリックして自動文字起こしを行います。  
-      - 「話者識別を実行」ボタンで話者の区別を試みます。  
-  
+       - 「音声分析」タブで波形を確認します。  
+       - 「文字起こしを実行」ボタンをクリックして自動文字起こしを行います。  
+       - 「話者識別を実行」ボタンで話者の区別を試みます。  
+      
     3. **音声編集**  
-      - 「編集」タブの「音声を自動処理」ボタンで自動編集を実行します。  
-      - 編集設定はサイドバーで調整可能です。  
-      - セグメント情報が表示され、個別にカスタマイズできます。  
-      - 「高度なオプション」でさらに詳細な編集が可能です。  
-  
+       - 「編集」タブの「音声を自動処理」ボタンで自動編集を実行します。  
+       - 編集設定はサイドバーで調整可能です。  
+       - セグメント情報が表示され、個別にカスタマイズできます。  
+       - 「高度なオプション」でさらに詳細な編集が可能です。  
+      
     4. **プレビュー**  
-      - 「プレビュー」タブで処理結果を確認します。  
-      - 処理前後の波形比較やスペクトログラム分析を行えます。  
-  
+       - 「プレビュー」タブで処理結果を確認します。  
+       - 処理前後の波形比較やスペクトログラム分析を行えます。  
+      
     5. **エクスポート**  
-      - 「エクスポート」タブでMP4/MP3/WAVとして出力できます。  
-      - 音質やサムネイル画像を設定できます。  
-  
+       - 「エクスポート」タブでMP4/MP3/WAVとして出力できます。  
+       - 音質やサムネイル画像を設定できます。  
+      
     6. **プロジェクト管理**  
-      - 「プロジェクト管理」タブでプロジェクトの保存と読み込みができます。  
-      - 設定や編集状態を保存して後で続きを編集できます。  
+       - 「プロジェクト管理」タブでプロジェクトの保存と読み込みができます。  
+       - 設定や編集状態を保存して後で続きを編集できます。  
     """)  
   
 # エラーハンドリング  
