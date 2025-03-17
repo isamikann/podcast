@@ -260,6 +260,16 @@ with tab2:
         st.write(f"検出されたセグメント数: {len(st.session_state.segments)}")  
         for i, (start, end) in enumerate(st.session_state.segments):  
             st.write(f"セグメント {i+1}: {start/1000:.2f}秒 - {end/1000:.2f}秒 (長さ: {(end-start)/1000:.2f}秒)")  
+
+    # キーワードを入力してカット  
+    keywords_to_cut = st.text_input("カットするキーワード（カンマ区切りで複数指定可能）").split(',')  
+    if st.button("キーワードでカット"):  
+        with st.spinner('キーワードでカット中...'):  
+            final_audio = cut_audio_by_transcript(st.session_state.transcript, st.session_state.segments, st.session_state.audio_data, keywords_to_cut, st.session_state.sr)  
+            processed_path = os.path.join(st.session_state.temp_dir, "cut_processed.wav")  
+            final_audio.export(processed_path, format="wav")  
+            st.session_state.processed_audio = processed_path  
+            st.success("キーワードでカットが完了しました！")  
   
 with tab3:  
     st.subheader("プレビュー")  
@@ -461,6 +471,39 @@ def cleanup_temp_files():
             shutil.rmtree(st.session_state.temp_dir)  
         except Exception as e:  
             pass  
+
+# 音声ファイルから指定された文字部分の音声部分をカットする関数  
+def cut_audio_by_transcript(transcript, segments, audio_segment, keywords, sr):  
+    for keyword in keywords:  
+        for start, end in get_keyword_timestamps(transcript, segments, keyword, sr):  
+            audio_segment = audio_segment[:start * 1000] + audio_segment[end * 1000:]  
+    return audio_segment  
+  
+# キーワードが見つかる時間（秒）範囲を返す関数  
+def get_keyword_timestamps(transcript, segments, keyword, sr):  
+    timestamps = []  
+    start_time = 0  
+    for segment in segments:  
+        start, end = segment  
+        text = transcribe_audio_partial(audio_path, language_code[language], start, end, sr)  
+        if keyword in text:  
+            keyword_start = start_time + text.find(keyword) / len(text)  
+            keyword_end = keyword_start + len(keyword) / len(text)  
+            timestamps.append((keyword_start, keyword_end))  
+        start_time += (end - start) / sr  
+    return timestamps  
+  
+# サブセグメントの文字起こしを行う部分関数  
+def transcribe_audio_partial(audio_path, language_code, start, end, sr):  
+    audio_segment = sf.read(audio_path, start=int(start * sr), stop=int(end * sr))  
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tmp_file:  
+        sf.write(tmp_file.name, audio_segment, sr)  
+        recognizer = sr.Recognizer()  
+        audio_file = sr.AudioFile(tmp_file.name)  
+        with audio_file as source:  
+            audio_data = recognizer.record(source)  
+            text = recognizer.recognize_google(audio_data, language=language_code)  
+    return text  
   
 # アプリのフッター情報  
 st.markdown("---")  
