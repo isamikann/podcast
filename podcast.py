@@ -14,7 +14,7 @@ import shutil
 from pathlib import Path  
 import base64  
 import streamlit as st  
-
+  
 # セッション状態の初期化関数  
 def initialize_session_state():  
     if 'audio_data' not in st.session_state:  
@@ -70,6 +70,7 @@ def load_audio(file):
                 return None, None, None, None  
   
             y, sr = librosa.load(temp_export_path, sr=None)  
+            y = np.array(y)  # ここで numpy 配列に変換  
             audio_segment = AudioSegment.from_wav(temp_export_path)  
             ext = os.path.splitext(file.name)[1][1:]  # 拡張子の取得（例: 'mp3'）  
             st.session_state.original_audio_format = ext  
@@ -146,7 +147,7 @@ language_code = {
     "英語": "en-US",  
     "スペイン語": "es-ES"  
 }  
-    
+  
 # セグメント化関数  
 def segment_audio(audio_segment, silence_thresh, min_silence_len):  
     silence_parts = silence.detect_silence(  
@@ -273,10 +274,10 @@ with tab1:
                 ax.set_title("話者識別結果")  
                 ax.legend(colors.keys())  
                 st.pyplot(fig)  
-                  
+  
 with tab2:  
     st.subheader("音声編集")  
-      
+  
     if st.button("音声を自動処理"):  
         try:  
             with st.spinner('処理中...'):  
@@ -296,7 +297,7 @@ with tab2:
                 st.success("処理が完了しました！")  
         except Exception as e:  
             st.error(f"音声処理中にエラーが発生しました: {str(e)}")  
-      
+  
     # キーワードを入力してカット  
     keywords_to_cut = st.text_input("カットするキーワード（カンマ区切りで複数指定可能）").split(',')  
     if st.button("キーワードでカット"):  
@@ -378,8 +379,8 @@ with tab4:
                         '-i', st.session_state.processed_audio,  
                         '-c:v', 'libx264',  
                         '-tune', 'stillimage',  
-                        '-c:a', 'aac',  
-                        '-b:a', selected_quality,  
+                        '-c:a', 'aac
+                                            '-b:a', selected_quality,  
                         '-pix_fmt', 'yuv420p',  
                         '-shortest',  
                         output_file  
@@ -421,23 +422,6 @@ with tab5:
                 st.experimental_rerun()  
         else:  
             st.info("保存されたプロジェクトがありません。")  
-  
-def identify_speakers(audio_path, num_speakers=2):  
-    y, sr = librosa.load(audio_path, sr=None)  
-    segments = []  
-    window_size = len(y) // 10  
-    for i in range(0, len(y), window_size):  
-        end = min(i + window_size, len(y))  
-        segment = y[i:end]  
-        mean = np.mean(segment)  
-        var = np.var(segment)  
-        speaker = "話者A" if (mean + var) > 0 else "話者B"  
-        segments.append({  
-            "start": i / sr,  
-            "end": end / sr,  
-            "speaker": speaker  
-        })  
-    return segments  
   
 def save_project(project_name):  
     project_dir = os.path.join(os.path.expanduser("~"), "podcast_editor_projects")  
@@ -487,30 +471,13 @@ def load_project(project_file):
     st.session_state.transcript = project_info["transcript"]  
     return project_info  
   
-def identify_speakers(audio_path, num_speakers=2):  
-    y, sr = librosa.load(audio_path, sr=None)  
-    segments = []  
-    window_size = len(y) // 10  
-    for i in range(0, len(y), window_size):  
-        end = min(i + window_size, len(y))  
-        segment = y[i:end]  
-        mean = np.mean(segment)  
-        var = np.var(segment)  
-        speaker = "話者A" if (mean + var) > 0 else "話者B"  
-        segments.append({  
-            "start": i / sr,  
-            "end": end / sr,  
-            "speaker": speaker  
-        })  
-    return segments  
-  
 def cleanup_temp_files():  
     if 'temp_dir' in st.session_state and os.path.exists(st.session_state.temp_dir):  
         try:  
             shutil.rmtree(st.session_state.temp_dir)  
         except Exception as e:  
             pass  
-
+  
 # 音声ファイルから指定された文字部分の音声部分をカットする関数  
 def cut_audio_by_transcript(transcript, segments, audio_segment, keywords, sr):  
     for keyword in keywords:  
@@ -557,33 +524,33 @@ atexit.register(cleanup_temp_files)
 with st.expander("使い方ガイド"):  
     st.write("""  
     ### ポッドキャスト自動音声編集アプリの使い方  
-      
+  
     1. **音声ファイルのアップロード**  
-       - サイドバーの「ファイルのアップロード」セクションから音声ファイルをアップロードします。  
-       - WAV, MP3, OGG, FLACフォーマットに対応しています。  
-      
+      - サイドバーの「ファイルのアップロード」セクションから音声ファイルをアップロードします。  
+      - WAV, MP3, OGG, FLACフォーマットに対応しています。  
+  
     2. **音声分析**  
-       - 「音声分析」タブで波形を確認します。  
-       - 「文字起こしを実行」ボタンをクリックして自動文字起こしを行います。  
-       - 「話者識別を実行」ボタンで話者の区別を試みます。  
-      
+      - 「音声分析」タブで波形を確認します。  
+      - 「文字起こしを実行」ボタンをクリックして自動文字起こしを行います。  
+      - 「話者識別を実行」ボタンで話者の区別を試みます。  
+  
     3. **音声編集**  
-       - 「編集」タブの「音声を自動処理」ボタンで自動編集を実行します。  
-       - 編集設定はサイドバーで調整可能です。  
-       - セグメント情報が表示され、個別にカスタマイズできます。  
-       - 「高度なオプション」でさらに詳細な編集が可能です。  
-      
+      - 「編集」タブの「音声を自動処理」ボタンで自動編集を実行します。  
+      - 編集設定はサイドバーで調整可能です。  
+      - セグメント情報が表示され、個別にカスタマイズできます。  
+      - 「キーワードでカット」ボタンで特定のキーワードを含むセグメントをカットできます。  
+  
     4. **プレビュー**  
-       - 「プレビュー」タブで処理結果を確認します。  
-       - 処理前後の波形比較やスペクトログラム分析を行えます。  
-      
+      - 「プレビュー」タブで処理結果を確認します。  
+      - 処理前後の波形比較やスペクトログラム分析を行えます。  
+  
     5. **エクスポート**  
-       - 「エクスポート」タブでMP4/MP3/WAVとして出力できます。  
-       - 音質やサムネイル画像を設定できます。  
-      
+      - 「エクスポート」タブでMP4/MP3/WAVとして出力できます。  
+      - 音質やサムネイル画像を設定できます。  
+  
     6. **プロジェクト管理**  
-       - 「プロジェクト管理」タブでプロジェクトの保存と読み込みができます。  
-       - 設定や編集状態を保存して後で続きを編集できます。  
+      - 「プロジェクト管理」タブでプロジェクトの保存と読み込みができます。  
+      - 設定や編集状態を保存して後で続きを編集できます。  
     """)  
   
 # エラーハンドリング  
