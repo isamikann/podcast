@@ -251,7 +251,7 @@ with tab2:
         try:  
             with st.spinner('処理中...'):  
                 y_reduced = reduce_noise(st.session_state.waveform, st.session_state.sr, noise_reduction)  
-                noise_reduced_path = os.path.join(st.session_state.temp_dir, f"noise_reduced.{st.session_state.original_audio_format}")  
+                noise_reduced_path = os.path.join(st.session_state.temp_dir, f"noise_reduced.wav")  
                 sf.write(noise_reduced_path, y_reduced, st.session_state.sr)  
                 processed_audio = AudioSegment.from_file(noise_reduced_path)  
                 st.session_state.audio_data = processed_audio  # ここで session_state の audio_data を更新する  
@@ -273,7 +273,7 @@ with tab2:
         try:  
             with st.spinner('キーワードでカット中...'):  
                 final_audio = cut_audio_by_transcript(st.session_state.transcript, st.session_state.segments, st.session_state.audio_data, keywords_to_cut, st.session_state.sr)  
-                processed_path = os.path.join(st.session_state.temp_dir, f"cut_processed.{st.session_state.original_audio_format}")  
+                processed_path = os.path.join(st.session_state.temp_dir, f"cut_processed.wav")  
                 final_audio.export(processed_path, format=st.session_state.original_audio_format)  
                 st.session_state.processed_audio = processed_path  
                 st.success("キーワードでカットが完了しました！")  
@@ -494,10 +494,10 @@ def get_keyword_timestamps(transcript, segments, keyword, sr):
     start_time = 0  
     for segment in segments:  
         start, end = segment  
-        text = transcribe_audio_partial(audio_path, language_code[language], start, end, sr)  
+        text = transcribe_audio_partial(st.session_state.audio_data, language_code, start, end, sr)  
         if keyword in text:  
-            keyword_start = start_time + text.find(keyword) / len(text)  
-            keyword_end = keyword_start + len(keyword) / len(text)  
+            keyword_start = start_time + (text.find(keyword) / len(text)) * (end - start) / sr  
+            keyword_end = keyword_start + (len(keyword) / len(text)) * (end - start) / sr  
             timestamps.append((keyword_start, keyword_end))  
         start_time += (end - start) / sr  
     return timestamps  
@@ -505,8 +505,8 @@ def get_keyword_timestamps(transcript, segments, keyword, sr):
 # サブセグメントの文字起こしを行う部分関数  
 def transcribe_audio_partial(audio_segment, language_code, start, end, sr):  
     partial_audio = audio_segment[start:end]  
-    with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{st.session_state.original_audio_format}') as tmp_file:  # 元の形式を使用  
-        partial_audio.export(tmp_file.name, format=st.session_state.original_audio_format)  
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tmp_file:  # 一時的にWAV形式で保存  
+        partial_audio.export(tmp_file.name, format="wav")  
         recognizer = sr.Recognizer()  
         audio_file = sr.AudioFile(tmp_file.name)  
         with audio_file as source:  
