@@ -44,8 +44,19 @@ st.title("ポッドキャスト自動音声編集アプリ")
 def upload_audio_file():  
     st.sidebar.header("ファイルのアップロード")  
     return st.sidebar.file_uploader("音声ファイルをアップロード", type=['wav', 'mp3', 'ogg', 'flac'])  
-
+  
 uploaded_file = upload_audio_file()  
+  
+# FFmpegを使って音声ファイルをWAVに変換する関数  
+def convert_to_wav(file_path, output_path):  
+    try:  
+        # FFmpegでファイルをWAV形式に変換  
+        cmd = ["ffmpeg", "-y", "-i", file_path, output_path]  
+        subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)  
+        return True  
+    except subprocess.CalledProcessError as e:  
+        st.error(f"FFmpegによる変換エラー: {e.stderr.decode()}")  
+        return False  
   
 # 音声ファイル読み込み関数  
 def load_audio(file):  
@@ -53,27 +64,15 @@ def load_audio(file):
         with tempfile.NamedTemporaryFile(delete=False) as tmp_file:  
             tmp_file.write(file.read())  
             tmp_path = tmp_file.name  
-            try:  
-                audio_segment = AudioSegment.from_file(tmp_path)  
-            except Exception as e:  
-                st.error(f"音声ファイルの読み込みエラー (Pydub): {e}")  
-                return None, None, None, None  
-  
-            ext = os.path.splitext(file.name)[1][1:]  # 拡張子の取得（例: 'mp3'）  
-            st.session_state.original_audio_format = ext  
   
             temp_export_path = os.path.join(st.session_state.temp_dir, "temp.wav")  
-            try:  
-                audio_segment.export(temp_export_path, format="wav")  
-            except Exception as e:  
-                st.error(f"音声ファイルのエクスポートエラー (Pydub): {e}")  
+            if not convert_to_wav(tmp_path, temp_export_path):  
                 return None, None, None, None  
   
-            try:  
-                y, sr = librosa.load(temp_export_path, sr=None)  
-            except Exception as e:  
-                st.error(f"音声ファイルの読み込みエラー (Librosa): {e}")  
-                return None, None, None, None  
+            y, sr = librosa.load(temp_export_path, sr=None)  
+            audio_segment = AudioSegment.from_wav(temp_export_path)  
+            ext = os.path.splitext(file.name)[1][1:]  # 拡張子の取得（例: 'mp3'）  
+            st.session_state.original_audio_format = ext  
   
             return y, sr, temp_export_path, audio_segment  
   
