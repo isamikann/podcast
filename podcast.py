@@ -240,34 +240,30 @@ with tab1:
                 st.pyplot(fig)  
                   
 with tab2:  
-    st.subheader("音声編集")  
     if st.button("音声を自動処理"):  
         with st.spinner('処理中...'):  
             y_reduced = reduce_noise(st.session_state.waveform, st.session_state.sr, noise_reduction)  
-            noise_reduced_path = os.path.join(st.session_state.temp_dir, "noise_reduced.wav")  
+            noise_reduced_path = os.path.join(st.session_state.temp_dir, f"noise_reduced.{st.session_state.original_audio_format}")  
             sf.write(noise_reduced_path, y_reduced, st.session_state.sr)  
-            processed_audio = AudioSegment.from_wav(noise_reduced_path)  
+            processed_audio = AudioSegment.from_file(noise_reduced_path)  
+            st.session_state.audio_data = processed_audio  # ここで session_state の audio_data を更新する  
             if volume_normalize:  
                 processed_audio = normalize_audio(processed_audio)  
             segments = segment_audio(processed_audio, silence_threshold, min_silence_duration)  
             st.session_state.segments = segments  
             final_audio = add_sound_effects(processed_audio, intro_music, add_transitions, segments)  
-            processed_path = os.path.join(st.session_state.temp_dir, "processed.wav")  
-            final_audio.export(processed_path, format="wav")  
+            processed_path = os.path.join(st.session_state.temp_dir, f"processed.{st.session_state.original_audio_format}")  
+            final_audio.export(processed_path, format=st.session_state.original_audio_format)  
             st.session_state.processed_audio = processed_path  
             st.success("処理が完了しました！")  
-    if st.session_state.segments:  
-        st.write(f"検出されたセグメント数: {len(st.session_state.segments)}")  
-        for i, (start, end) in enumerate(st.session_state.segments):  
-            st.write(f"セグメント {i+1}: {start/1000:.2f}秒 - {end/1000:.2f}秒 (長さ: {(end-start)/1000:.2f}秒)")  
-
+      
     # キーワードを入力してカット  
     keywords_to_cut = st.text_input("カットするキーワード（カンマ区切りで複数指定可能）").split(',')  
     if st.button("キーワードでカット"):  
         with st.spinner('キーワードでカット中...'):  
             final_audio = cut_audio_by_transcript(st.session_state.transcript, st.session_state.segments, st.session_state.audio_data, keywords_to_cut, st.session_state.sr)  
-            processed_path = os.path.join(st.session_state.temp_dir, "cut_processed.wav")  
-            final_audio.export(processed_path, format="wav")  
+            processed_path = os.path.join(st.session_state.temp_dir, f"cut_processed.{st.session_state.original_audio_format}")  
+            final_audio.export(processed_path, format=st.session_state.original_audio_format)  
             st.session_state.processed_audio = processed_path  
             st.success("キーワードでカットが完了しました！")  
   
@@ -494,10 +490,10 @@ def get_keyword_timestamps(transcript, segments, keyword, sr):
     return timestamps  
   
 # サブセグメントの文字起こしを行う部分関数  
-def transcribe_audio_partial(audio_path, language_code, start, end, sr):  
-    audio_segment = sf.read(audio_path, start=int(start * sr), stop=int(end * sr))  
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tmp_file:  
-        sf.write(tmp_file.name, audio_segment, sr)  
+def transcribe_audio_partial(audio_segment, language_code, start, end, sr):  
+    partial_audio = audio_segment[start:end]  
+    with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{st.session_state.original_audio_format}') as tmp_file:  # 元の形式を使用  
+        partial_audio.export(tmp_file.name, format=st.session_state.original_audio_format)  
         recognizer = sr.Recognizer()  
         audio_file = sr.AudioFile(tmp_file.name)  
         with audio_file as source:  
