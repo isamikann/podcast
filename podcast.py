@@ -44,6 +44,75 @@ st.title("ポッドキャスト自動音声編集アプリ")
 def upload_audio_file():  
     st.sidebar.header("ファイルのアップロード")  
     return st.sidebar.file_uploader("音声ファイルをアップロード", type=['wav', 'mp3', 'ogg', 'flac'])  
+
+uploaded_file = upload_audio_file()  
+  
+# 音声ファイル読み込み関数  
+def load_audio(file):  
+    try:  
+        with tempfile.NamedTemporaryFile(delete=False) as tmp_file:  
+            tmp_file.write(file.read())  
+            tmp_path = tmp_file.name  
+            try:  
+                audio_segment = AudioSegment.from_file(tmp_path)  
+            except Exception as e:  
+                st.error(f"音声ファイルの読み込みエラー (Pydub): {e}")  
+                return None, None, None, None  
+  
+            ext = os.path.splitext(file.name)[1][1:]  # 拡張子の取得（例: 'mp3'）  
+            st.session_state.original_audio_format = ext  
+  
+            temp_export_path = os.path.join(st.session_state.temp_dir, "temp.wav")  
+            try:  
+                audio_segment.export(temp_export_path, format="wav")  
+            except Exception as e:  
+                st.error(f"音声ファイルのエクスポートエラー (Pydub): {e}")  
+                return None, None, None, None  
+  
+            try:  
+                y, sr = librosa.load(temp_export_path, sr=None)  
+            except Exception as e:  
+                st.error(f"音声ファイルの読み込みエラー (Librosa): {e}")  
+                return None, None, None, None  
+  
+            return y, sr, temp_export_path, audio_segment  
+  
+    except Exception as e:  
+        st.error(f"音声ファイルの読み込みエラー (全体): {e}")  
+        return None, None, None, None  
+  
+# 波形表示関数  
+def plot_waveform(y, sr):  
+    fig, ax = plt.subplots(figsize=(10, 2))  
+    librosa.display.waveshow(y, sr=sr, ax=ax)  
+    ax.set_title('音声波形')  
+    ax.set_xlabel('時間 (秒)')  
+    ax.set_ylabel('振幅')  
+    return fig  
+  
+# 音声認識と文字起こし関数  
+@st.cache_data  
+def transcribe_audio(audio_path, language_code):  
+    try:  
+        recognizer = sr.Recognizer()  
+        audio_file = sr.AudioFile(audio_path)  
+        with audio_file as source:  
+            audio_data = recognizer.record(source)  
+            text = recognizer.recognize_google(audio_data, language=language_code)  
+        return text  
+    except Exception as e:  
+        return f"文字起こしエラー: {str(e)}"  
+  
+if uploaded_file is not None:  
+    y, sr, wav_path, audio_segment = load_audio(uploaded_file)  
+    if y is not None and sr is not None and wav_path is not None and audio_segment is not None:  
+        st.session_state.audio_data = audio_segment  
+        st.session_state.waveform = y  
+        st.session_state.sr = sr  
+  
+        st.audio(wav_path)  
+        fig = plot_waveform(y, sr)  
+        st.pyplot(fig)  
   
 # 音声処理パラメータ設定関数  
 def set_audio_parameters():  
@@ -78,59 +147,6 @@ language_code = {
     "英語": "en-US",  
     "スペイン語": "es-ES"  
 }  
-  
-# 音声ファイル読み込み関数  
-def load_audio(file):  
-    try:  
-        with tempfile.NamedTemporaryFile(delete=False) as tmp_file:  
-            tmp_file.write(file.read())  
-            tmp_path = tmp_file.name  
-            audio_segment = AudioSegment.from_file(tmp_path)  
-  
-            ext = os.path.splitext(file.name)[1][1:]  # 拡張子の取得（例: 'mp3'）  
-            st.session_state.original_audio_format = ext  
-  
-            temp_export_path = os.path.join(st.session_state.temp_dir, "temp.wav")  
-            audio_segment.export(temp_export_path, format="wav")  
-            y, sr = librosa.load(temp_export_path, sr=None)  
-            return y, sr, temp_export_path, audio_segment  
-  
-    except Exception as e:  
-        st.error(f"音声ファイルの読み込みエラー: {e}")  
-        return None, None, None, None  
-        
-# 波形表示関数  
-def plot_waveform(y, sr):  
-    fig, ax = plt.subplots(figsize=(10, 2))  
-    librosa.display.waveshow(y, sr=sr, ax=ax)  
-    ax.set_title('音声波形')  
-    ax.set_xlabel('時間 (秒)')  
-    ax.set_ylabel('振幅')  
-    return fig  
-  
-# 音声認識と文字起こし関数  
-@st.cache_data  
-def transcribe_audio(audio_path, language_code):  
-    try:  
-        recognizer = sr.Recognizer()  
-        audio_file = sr.AudioFile(audio_path)  
-        with audio_file as source:  
-            audio_data = recognizer.record(source)  
-            text = recognizer.recognize_google(audio_data, language=language_code)  
-        return text  
-    except Exception as e:  
-        return f"文字起こしエラー: {str(e)}"  
-
-if uploaded_file is not None:  
-    y, sr, wav_path, audio_segment = load_audio(uploaded_file)  
-    if y is not None and sr is not None and wav_path is not None and audio_segment is not None:  
-        st.session_state.audio_data = audio_segment  
-        st.session_state.waveform = y  
-        st.session_state.sr = sr  
-  
-        st.audio(wav_path)  
-        fig = plot_waveform(y, sr)  
-        st.pyplot(fig)  
     
 # セグメント化関数  
 def segment_audio(audio_segment, silence_thresh, min_silence_len):  
