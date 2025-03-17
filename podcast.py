@@ -45,20 +45,6 @@ def upload_audio_file():
     st.sidebar.header("ファイルのアップロード")  
     return st.sidebar.file_uploader("音声ファイルをアップロード", type=['wav', 'mp3', 'ogg', 'flac'])  
   
-uploaded_file = upload_audio_file()  
-wav_path = None  
-
-if uploaded_file is not None:  
-    y, sr, wav_path, audio_segment = load_audio(uploaded_file)  
-    st.session_state.audio_data = audio_segment  
-    st.session_state.waveform = y  
-    st.session_state.sr = sr  
-  
-if wav_path:  
-    st.audio(wav_path)  
-    fig = plot_waveform(y, sr)  
-    st.pyplot(fig)  
-  
 # 音声処理パラメータ設定関数  
 def set_audio_parameters():  
     st.sidebar.header("音声処理設定")  
@@ -132,7 +118,21 @@ def transcribe_audio(audio_path, language_code):
             text = recognizer.recognize_google(audio_data, language=language_code)  
         return text  
     except Exception as e:  
-        return f"文字起こしエラー: {str(e)}"   
+        return f"文字起こしエラー: {str(e)}" 
+
+uploaded_file = upload_audio_file()  
+wav_path = None  
+
+if uploaded_file is not None:  
+    y, sr, wav_path, audio_segment = load_audio(uploaded_file)  
+    st.session_state.audio_data = audio_segment  
+    st.session_state.waveform = y  
+    st.session_state.sr = sr  
+  
+if wav_path:  
+    st.audio(wav_path)  
+    fig = plot_waveform(y, sr)  
+    st.pyplot(fig)  
   
 # セグメント化関数  
 def segment_audio(audio_segment, silence_thresh, min_silence_len):  
