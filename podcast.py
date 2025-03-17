@@ -81,12 +81,19 @@ def load_audio(file):
   
 # 波形表示関数  
 def plot_waveform(y, sr):  
-    fig, ax = plt.subplots(figsize=(10, 2))  
-    librosa.display.waveshow(y, sr=sr, ax=ax)  
-    ax.set_title('音声波形')  
-    ax.set_xlabel('時間 (秒)')  
-    ax.set_ylabel('振幅')  
-    return fig  
+    try:  
+        fig, ax = plt.subplots(figsize=(10, 2))  
+        if isinstance(y, np.ndarray):  
+            librosa.display.waveshow(y, sr=sr, ax=ax)  
+        else:  
+            raise ValueError("音声データが適切なフォーマットではありません")  
+        ax.set_title('音声波形')  
+        ax.set_xlabel('時間 (秒)')  
+        ax.set_ylabel('振幅')  
+        return fig  
+    except Exception as e:  
+        st.error(f"波形のプロット中にエラーが発生しました: {str(e)}")  
+        return None  
   
 # 音声認識と文字起こし関数  
 @st.cache_data  
@@ -232,10 +239,13 @@ def process_uploaded_file(uploaded_file):
         try:  
             with st.spinner('音声ファイルを読み込んでいます...'):  
                 y, sr, wav_path, audio_segment = load_audio(uploaded_file)  
-                st.session_state.audio_data = audio_segment  
-                st.session_state.waveform = y  
-                st.session_state.sr = sr  
-                return wav_path  
+                if y is not None:  
+                    st.session_state.audio_data = audio_segment  
+                    st.session_state.waveform = y  
+                    st.session_state.sr = sr  
+                    return wav_path  
+                else:  
+                    st.error("音声データの読み込みに失敗しました")  
         except Exception as e:  
             st.error(f"音声ファイルの処理中にエラーが発生しました: {e}")  
   
@@ -248,7 +258,8 @@ with tab1:
         st.audio(wav_path)  
         st.write("波形分析")  
         fig = plot_waveform(st.session_state.waveform, st.session_state.sr)  
-        st.pyplot(fig)  
+        if fig is not None:  
+            st.pyplot(fig)  
         if st.button("文字起こしを実行"):  
             with st.spinner('文字起こしを実行中...'):  
                 text = transcribe_audio(wav_path, language_code[language])  
