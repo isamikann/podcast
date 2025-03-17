@@ -133,7 +133,7 @@ if wav_path:
     st.audio(wav_path)  
     fig = plot_waveform(y, sr)  
     st.pyplot(fig)  
-  
+    
 # セグメント化関数  
 def segment_audio(audio_segment, silence_thresh, min_silence_len):  
     silence_parts = silence.detect_silence(  
