@@ -204,12 +204,12 @@ def create_mp4(audio_path, output_path):
     cmd = [  
         'ffmpeg', '-y',  
         '-loop', '1',  
-        '-i', image_path,  
-        '-i', audio_path,  
+        '-i', image_src,  
+        '-i', st.session_state.processed_audio,  
         '-c:v', 'libx264',  
         '-tune', 'stillimage',  
         '-c:a', 'aac',  
-        '-b:a', '192k',  
+        '-b:a', selected_quality,  
         '-pix_fmt', 'yuv420p',  
         '-shortest',  
         output_path  
