@@ -189,27 +189,6 @@ def get_binary_file_downloader_html(bin_file, file_label='File'):
     href = f'<a href="data:application/octet-stream;base64,{bin_str}" download="{os.path.basename(bin_file)}">{file_label}</a>'  
     return href  
 
-# 音声ファイルから指定された文字部分の音声部分をカットする関数  
-def cut_audio_by_transcript(transcript, segments, audio_segment, keywords, sr):  
-    for keyword in keywords:  
-        for start, end in get_keyword_timestamps(transcript, segments, keyword, sr):  
-            audio_segment = audio_segment[:start * 1000] + audio_segment[end * 1000:]  
-    return audio_segment  
-  
-# キーワードが見つかる時間（秒）範囲を返す関数  
-def get_keyword_timestamps(transcript, segments, keyword, sr):  
-    timestamps = []  
-    start_time = 0  
-    for segment in segments:  
-        start, end = segment  
-        text = transcribe_audio_partial(audio_path, language_code[language], start, end, sr)  
-        if keyword in text:  
-            keyword_start = start_time + text.find(keyword) / len(text)  
-            keyword_end = keyword_start + len(keyword) / len(text)  
-            timestamps.append((keyword_start, keyword_end))  
-        start_time += (end - start) / sr  
-    return timestamps  
-
 # キーワードでのカットを行う関数  
 def cut_audio_by_transcript(transcript, segments, audio_segment, keywords, sr):  
     for keyword in keywords:  
