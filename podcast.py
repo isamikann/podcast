@@ -46,6 +46,18 @@ def upload_audio_file():
     return st.sidebar.file_uploader("音声ファイルをアップロード", type=['wav', 'mp3', 'ogg', 'flac'])  
   
 uploaded_file = upload_audio_file()  
+wav_path = None  
+
+if uploaded_file is not None:  
+    y, sr, wav_path, audio_segment = load_audio(uploaded_file)  
+    st.session_state.audio_data = audio_segment  
+    st.session_state.waveform = y  
+    st.session_state.sr = sr  
+  
+if wav_path:  
+    st.audio(wav_path)  
+    fig = plot_waveform(y, sr)  
+    st.pyplot(fig)  
   
 # 音声処理パラメータ設定関数  
 def set_audio_parameters():  
@@ -83,18 +95,23 @@ language_code = {
   
 # 音声ファイル読み込み関数  
 def load_audio(file):  
-    with tempfile.NamedTemporaryFile(delete=False) as tmp_file:  
-        tmp_file.write(file.getvalue())  
-        tmp_path = tmp_file.name  
-        audio_segment = AudioSegment.from_file(tmp_path)  
-          
-        # 元のファイル形式を取得して保存  
-        ext = os.path.splitext(file.name)[1][1:]  # 拡張子の取得（例: 'mp3'）  
-        st.session_state.original_audio_format = ext  
+    try:  
+        with tempfile.NamedTemporaryFile(delete=False) as tmp_file:  
+            tmp_file.write(file.read())  
+            tmp_path = tmp_file.name  
+            audio_segment = AudioSegment.from_file(tmp_path)  
+            ext = os.path.splitext(file.name)[1][1:]  # 拡張子の取得（例: 'mp3'）  
+            st.session_state.original_audio_format = ext  
   
-        y, sr = librosa.load(tmp_path, sr=None)  
-        return y, sr, tmp_path, audio_segment  
+            temp_export_path = os.path.join(st.session_state.temp_dir, "temp.wav")  
+            audio_segment.export(temp_export_path, format="wav")  
+            y, sr = librosa.load(temp_export_path, sr=None)  
+            return y, sr, temp_export_path, audio_segment  
   
+    except Exception as e:  
+        st.error(f"音声ファイルの読み込みエラー: {e}")  
+        return None, None, None, None  
+        
 # 波形表示関数  
 def plot_waveform(y, sr):  
     fig, ax = plt.subplots(figsize=(10, 2))  
@@ -115,7 +132,7 @@ def transcribe_audio(audio_path, language_code):
             text = recognizer.recognize_google(audio_data, language=language_code)  
         return text  
     except Exception as e:  
-        return f"文字起こしエラー: {str(e)}"  
+        return f"文字起こしエラー: {str(e)}"   
   
 # セグメント化関数  
 def segment_audio(audio_segment, silence_thresh, min_silence_len):  
