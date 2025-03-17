@@ -31,6 +31,8 @@ def initialize_session_state():
         st.session_state.processed_audio = None  
     if 'temp_dir' not in st.session_state:  
         st.session_state.temp_dir = tempfile.mkdtemp()  
+    if 'original_audio_format' not in st.session_state:  
+        st.session_state.original_audio_format = None  
   
 initialize_session_state()  
   
@@ -81,14 +83,17 @@ language_code = {
   
 # 音声ファイル読み込み関数  
 def load_audio(file):  
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tmp_file:  
+    with tempfile.NamedTemporaryFile(delete=False) as tmp_file:  
         tmp_file.write(file.getvalue())  
         tmp_path = tmp_file.name  
         audio_segment = AudioSegment.from_file(tmp_path)  
-        wav_path = os.path.join(st.session_state.temp_dir, "original.wav")  
-        audio_segment.export(wav_path, format="wav")  
-        y, sr = librosa.load(wav_path, sr=None)  
-        return y, sr, wav_path, audio_segment  
+          
+        # 元のファイル形式を取得して保存  
+        ext = os.path.splitext(file.name)[1][1:]  # 拡張子の取得（例: 'mp3'）  
+        st.session_state.original_audio_format = ext  
+  
+        y, sr = librosa.load(tmp_path, sr=None)  
+        return y, sr, tmp_path, audio_segment  
   
 # 波形表示関数  
 def plot_waveform(y, sr):  
@@ -240,32 +245,40 @@ with tab1:
                 st.pyplot(fig)  
                   
 with tab2:  
+    st.subheader("音声編集")  
+      
     if st.button("音声を自動処理"):  
-        with st.spinner('処理中...'):  
-            y_reduced = reduce_noise(st.session_state.waveform, st.session_state.sr, noise_reduction)  
-            noise_reduced_path = os.path.join(st.session_state.temp_dir, f"noise_reduced.{st.session_state.original_audio_format}")  
-            sf.write(noise_reduced_path, y_reduced, st.session_state.sr)  
-            processed_audio = AudioSegment.from_file(noise_reduced_path)  
-            st.session_state.audio_data = processed_audio  # ここで session_state の audio_data を更新する  
-            if volume_normalize:  
-                processed_audio = normalize_audio(processed_audio)  
-            segments = segment_audio(processed_audio, silence_threshold, min_silence_duration)  
-            st.session_state.segments = segments  
-            final_audio = add_sound_effects(processed_audio, intro_music, add_transitions, segments)  
-            processed_path = os.path.join(st.session_state.temp_dir, f"processed.{st.session_state.original_audio_format}")  
-            final_audio.export(processed_path, format=st.session_state.original_audio_format)  
-            st.session_state.processed_audio = processed_path  
-            st.success("処理が完了しました！")  
+        try:  
+            with st.spinner('処理中...'):  
+                y_reduced = reduce_noise(st.session_state.waveform, st.session_state.sr, noise_reduction)  
+                noise_reduced_path = os.path.join(st.session_state.temp_dir, f"noise_reduced.{st.session_state.original_audio_format}")  
+                sf.write(noise_reduced_path, y_reduced, st.session_state.sr)  
+                processed_audio = AudioSegment.from_file(noise_reduced_path)  
+                st.session_state.audio_data = processed_audio  # ここで session_state の audio_data を更新する  
+                if volume_normalize:  
+                    processed_audio = normalize_audio(processed_audio)  
+                segments = segment_audio(processed_audio, silence_threshold, min_silence_duration)  
+                st.session_state.segments = segments  
+                final_audio = add_sound_effects(processed_audio, intro_music, add_transitions, segments)  
+                processed_path = os.path.join(st.session_state.temp_dir, f"processed.{st.session_state.original_audio_format}")  
+                final_audio.export(processed_path, format=st.session_state.original_audio_format)  
+                st.session_state.processed_audio = processed_path  
+                st.success("処理が完了しました！")  
+        except Exception as e:  
+            st.error(f"音声処理中にエラーが発生しました: {str(e)}")  
       
     # キーワードを入力してカット  
     keywords_to_cut = st.text_input("カットするキーワード（カンマ区切りで複数指定可能）").split(',')  
     if st.button("キーワードでカット"):  
-        with st.spinner('キーワードでカット中...'):  
-            final_audio = cut_audio_by_transcript(st.session_state.transcript, st.session_state.segments, st.session_state.audio_data, keywords_to_cut, st.session_state.sr)  
-            processed_path = os.path.join(st.session_state.temp_dir, f"cut_processed.{st.session_state.original_audio_format}")  
-            final_audio.export(processed_path, format=st.session_state.original_audio_format)  
-            st.session_state.processed_audio = processed_path  
-            st.success("キーワードでカットが完了しました！")  
+        try:  
+            with st.spinner('キーワードでカット中...'):  
+                final_audio = cut_audio_by_transcript(st.session_state.transcript, st.session_state.segments, st.session_state.audio_data, keywords_to_cut, st.session_state.sr)  
+                processed_path = os.path.join(st.session_state.temp_dir, f"cut_processed.{st.session_state.original_audio_format}")  
+                final_audio.export(processed_path, format=st.session_state.original_audio_format)  
+                st.session_state.processed_audio = processed_path  
+                st.success("キーワードでカットが完了しました！")  
+        except Exception as e:  
+            st.error(f"キーワードカット中にエラーが発生しました: {str(e)}")  
   
 with tab3:  
     st.subheader("プレビュー")  
