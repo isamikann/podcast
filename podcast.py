@@ -86,6 +86,7 @@ def load_audio(file):
             tmp_file.write(file.read())  
             tmp_path = tmp_file.name  
             audio_segment = AudioSegment.from_file(tmp_path)  
+  
             ext = os.path.splitext(file.name)[1][1:]  # 拡張子の取得（例: 'mp3'）  
             st.session_state.original_audio_format = ext  
   
@@ -118,21 +119,18 @@ def transcribe_audio(audio_path, language_code):
             text = recognizer.recognize_google(audio_data, language=language_code)  
         return text  
     except Exception as e:  
-        return f"文字起こしエラー: {str(e)}" 
-
-uploaded_file = upload_audio_file()  
-wav_path = None  
+        return f"文字起こしエラー: {str(e)}"  
 
 if uploaded_file is not None:  
     y, sr, wav_path, audio_segment = load_audio(uploaded_file)  
-    st.session_state.audio_data = audio_segment  
-    st.session_state.waveform = y  
-    st.session_state.sr = sr  
+    if y is not None and sr is not None and wav_path is not None and audio_segment is not None:  
+        st.session_state.audio_data = audio_segment  
+        st.session_state.waveform = y  
+        st.session_state.sr = sr  
   
-if wav_path:  
-    st.audio(wav_path)  
-    fig = plot_waveform(y, sr)  
-    st.pyplot(fig)  
+        st.audio(wav_path)  
+        fig = plot_waveform(y, sr)  
+        st.pyplot(fig)  
     
 # セグメント化関数  
 def segment_audio(audio_segment, silence_thresh, min_silence_len):  
