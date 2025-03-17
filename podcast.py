@@ -15,7 +15,6 @@ from pathlib import Path
 import base64  
 import streamlit as st  
 
-# セッション状態の初期化関数  
 def initialize_session_state():  
     if 'audio_data' not in st.session_state:  
         st.session_state.audio_data = None  
@@ -31,6 +30,8 @@ def initialize_session_state():
         st.session_state.processed_audio = None  
     if 'temp_dir' not in st.session_state:  
         st.session_state.temp_dir = tempfile.mkdtemp()  
+    if 'original_audio_format' not in st.session_state:  
+        st.session_state.original_audio_format = None
   
 initialize_session_state()  
   
@@ -88,6 +89,10 @@ def load_audio(file):
         wav_path = os.path.join(st.session_state.temp_dir, "original.wav")  
         audio_segment.export(wav_path, format="wav")  
         y, sr = librosa.load(wav_path, sr=None)  
+          
+        # 追加: 元のオーディオフォーマットをセッション状態に保存  
+        st.session_state.original_audio_format = file.name.split('.')[-1]  
+          
         return y, sr, wav_path, audio_segment  
   
 # 波形表示関数  
@@ -512,16 +517,15 @@ def cleanup_temp_files():
         try:  
             shutil.rmtree(st.session_state.temp_dir)  
         except Exception as e:  
-            pass  
+            pass  # ロギングなどを追加しても良い  
+  
+import atexit  
+atexit.register(cleanup_temp_files)  
   
 # アプリのフッター情報  
 st.markdown("---")  
 st.write("© 2025 ポッドキャスト自動音声編集アプリ")  
 st.write("Python + Streamlit + FFmpeg で作成")  
-  
-# アプリの終了時にクリーンアップ  
-import atexit  
-atexit.register(cleanup_temp_files)  
   
 # ユーザーマニュアルを追加  
 with st.expander("使い方ガイド"):  
