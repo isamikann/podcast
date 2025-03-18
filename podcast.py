@@ -49,9 +49,9 @@ uploaded_file = upload_audio_file()
 # 音声処理パラメータ設定関数  
 def set_audio_parameters():  
     st.sidebar.header("音声処理設定")  
-    noise_reduction = st.sidebar.slider("ノイズリダクションレベル", 0.0, 1.0, 0.3, 0.1)  
-    silence_threshold = st.sidebar.slider("沈黙検出閾値(dB)", -60, -20, -40, 5)  
-    min_silence_duration = st.sidebar.slider("最小沈黙時間(ms)", 300, 2000, 1000, 100)  
+    noise_reduction = st.sidebar.slider("ノイズリダクションレベル", 0.0, 1.0, 0.1, 0.01)  
+    silence_threshold = st.sidebar.slider("沈黙検出閾値(dB)", -60, -20, -40, 1)  
+    min_silence_duration = st.sidebar.slider("最小沈黙時間(ms)", 300, 2000, 1000, 50)  
     volume_normalize = st.sidebar.checkbox("音量ノーマライゼーション", True)  
     return noise_reduction, silence_threshold, min_silence_duration, volume_normalize  
   
