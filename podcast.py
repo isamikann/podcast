@@ -804,19 +804,18 @@ with tab2:
                     end_time = datetime.timedelta(milliseconds=end)  
                     duration = datetime.timedelta(milliseconds=end - start)  
                     st.write(f"セグメント {i+1}: {start_time} - {end_time} (長さ: {duration})")  
-                      
+  
         # 文字起こし結果の表示  
         if st.session_state.transcript:  
+            transcript_text = st.session_state.transcript  
             with st.expander("文字起こし結果", expanded=True):  
-                # 文字起こしをセグメントごとに分割して表示する  
-                transcript_segments = st.session_state.transcript.split('\n')  
-                for i, transcript in enumerate(transcript_segments):  
-                    if i < len(st.session_state.segments):  
-                        start, end = st.session_state.segments[i]  
-                        start_time = datetime.timedelta(milliseconds=start)  
-                        end_time = datetime.timedelta(milliseconds=end)  
-                        duration = datetime.timedelta(milliseconds=end - start)  
-                        st.write(f"セグメント {i+1} ({start_time} - {end_time}, 長さ: {duration}): {transcript}")  
+                # 文字起こし結果をセグメントごとに分割して表示する  
+                for i, (start, end) in enumerate(st.session_state.segments):  
+                    segment_transcript = transcribe_audio_partial(processed_path, preset_settings['language'], start, end, st.session_state.sample_rate)  
+                    start_time = datetime.timedelta(milliseconds=start)  
+                    end_time = datetime.timedelta(milliseconds=end)  
+                    duration = datetime.timedelta(milliseconds=end - start)  
+                    st.write(f"セグメント {i+1} ({start_time} - {end_time}, 長さ: {duration}): {segment_transcript}")  
   
         # 話者識別結果の視覚化（簡易版）  
         with st.expander("話者識別（実験的機能）"):  
