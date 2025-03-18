@@ -16,7 +16,6 @@ import base64
 import streamlit as st
 import subprocess  
 import tempfile  
-from your_julius_module import transcribe_audio_with_julius
 
 
 def initialize_session_state():  
