@@ -787,40 +787,48 @@ with tab1:
         st.info("音声ファイルをアップロードしてください。")
 
 
-# プレビュータブの内容
-with tab2:
-    st.header("編集結果プレビュー")
-    
-    if st.session_state.processed_audio is not None:
-        # 音声プレイヤー
-        processed_path = os.path.join(st.session_state.temp_dir, "processed.wav")
-        st.audio(processed_path)
-        
-        # セグメント情報の表示
-        if st.session_state.segments:
-            with st.expander("セグメント情報"):
-                for i, (start, end) in enumerate(st.session_state.segments):
-                    start_time = datetime.timedelta(milliseconds=start)
-                    end_time = datetime.timedelta(milliseconds=end)
-                    duration = datetime.timedelta(milliseconds=end-start)
-                    st.write(f"セグメント {i+1}: {start_time} - {end_time} (長さ: {duration})")
-        
-        # 文字起こし結果の表示
-        if st.session_state.transcript:
-            with st.expander("文字起こし結果", expanded=True):
-                st.write(st.session_state.transcript)
-                
-        # 話者識別結果の視覚化（簡易版）
-        with st.expander("話者識別（実験的機能）"):
-            if st.button("話者識別を実行"):
-                with st.spinner('話者を識別中...'):
-                    processed_path = os.path.join(st.session_state.temp_dir, "processed.wav")
-                    speaker_segments = identify_speakers(processed_path)
-                    y, sample_rate = librosa.load(processed_path, sr=None)
-                    fig = plot_speaker_identification(y, sample_rate, speaker_segments)
-                    st.pyplot(fig)
-    else:
-        st.info("先に「編集」タブで音声を編集してください。")
+# プレビュータブの内容  
+with tab2:  
+    st.header("編集結果プレビュー")  
+  
+    if st.session_state.processed_audio is not None:  
+        # 音声プレイヤー  
+        processed_path = os.path.join(st.session_state.temp_dir, "processed.wav")  
+        st.audio(processed_path)  
+  
+        # セグメント情報の表示  
+        if st.session_state.segments:  
+            with st.expander("セグメント情報"):  
+                for i, (start, end) in enumerate(st.session_state.segments):  
+                    start_time = datetime.timedelta(milliseconds=start)  
+                    end_time = datetime.timedelta(milliseconds=end)  
+                    duration = datetime.timedelta(milliseconds=end - start)  
+                    st.write(f"セグメント {i+1}: {start_time} - {end_time} (長さ: {duration})")  
+                      
+        # 文字起こし結果の表示  
+        if st.session_state.transcript:  
+            with st.expander("文字起こし結果", expanded=True):  
+                # 文字起こしをセグメントごとに分割して表示する  
+                transcript_segments = st.session_state.transcript.split('\n')  
+                for i, transcript in enumerate(transcript_segments):  
+                    if i < len(st.session_state.segments):  
+                        start, end = st.session_state.segments[i]  
+                        start_time = datetime.timedelta(milliseconds=start)  
+                        end_time = datetime.timedelta(milliseconds=end)  
+                        duration = datetime.timedelta(milliseconds=end - start)  
+                        st.write(f"セグメント {i+1} ({start_time} - {end_time}, 長さ: {duration}): {transcript}")  
+  
+        # 話者識別結果の視覚化（簡易版）  
+        with st.expander("話者識別（実験的機能）"):  
+            if st.button("話者識別を実行"):  
+                with st.spinner('話者を識別中...'):  
+                    processed_path = os.path.join(st.session_state.temp_dir, "processed.wav")  
+                    speaker_segments = identify_speakers(processed_path)  
+                    y, sample_rate = librosa.load(processed_path, sr=None)  
+                    fig = plot_speaker_identification(y, sample_rate, speaker_segments)  
+                    st.pyplot(fig)  
+    else:  
+        st.info("先に「編集」タブで音声を編集してください。")  
 
 
 # エクスポートタブの内容
