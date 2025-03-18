@@ -728,23 +728,23 @@ with tab1:
                         reduced_path = os.path.join(st.session_state.temp_dir, "reduced.wav")  
                         sf.write(reduced_path, y_reduced, st.session_state.sample_rate)  
                         processed_audio = AudioSegment.from_file(reduced_path)  
-              
+                          
                         if preset_settings['volume_normalize']:  
                             processed_audio = normalize_audio(processed_audio)  
                           
                         segments = segment_audio(processed_audio, preset_settings['silence_threshold'], preset_settings['min_silence_duration'])  
                         st.session_state.segments = segments  
-              
+                          
                         processed_audio = add_sound_effects(processed_audio, preset_settings['intro_music'], preset_settings['add_transitions'], segments)  
               
                         if preset_settings['bgm_file'] and preset_settings['bgm_file'] in st.session_state.bgm_files:  
                             bgm_path = st.session_state.bgm_files[preset_settings['bgm_file']]  
                             processed_audio = add_bgm(processed_audio, bgm_path, preset_settings['bgm_volume'])  
-                          
+              
                         st.session_state.processed_audio = processed_audio  
                         processed_path = os.path.join(st.session_state.temp_dir, "processed.wav")  
                         processed_audio.export(processed_path, format="wav")  
-              
+                          
                         language_code = {"日本語": "ja-JP", "英語": "en-US", "スペイン語": "es-ES"}[preset_settings['language']]  
                         st.session_state.transcripts = []  
               
@@ -759,7 +759,7 @@ with tab1:
                             except Exception as e:  
                                 st.error(f"セグメント {start} - {end} の文字起こしエラー: {e}")  
                                 continue  
-                          
+              
                         if keyword_cut_enabled and keyword_list:  
                             with st.spinner('キーワードをカット中...'):  
                                 try:  
@@ -794,8 +794,8 @@ with tab1:
                         st.success("音声の編集が完了しました！")  
                     except Exception as e:  
                         st.error(f"編集処理エラー: {e}")  
-            else:  
-                st.error("選択したプリセットが見つかりません。プリセットを作成してください。")  
+        else:
+            st.error("選択したプリセットが見つかりません。プリセットを作成してください。")
     else:
         st.info("音声ファイルをアップロードしてください。")
 
