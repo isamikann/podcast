@@ -86,7 +86,7 @@ with st.sidebar:
                 "標準": {
                     "noise_reduction": 0.0,
                     "silence_threshold": -40,
-                    "min_silence_duration": 150,
+                    "min_silence_duration": 250,
                     "volume_normalize": True,
                     "intro_music": "なし",
                     "add_transitions": False,
