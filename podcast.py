@@ -332,7 +332,7 @@ def plot_waveform(y, sample_rate):
         Figure: MatplotlibのFigureオブジェクト  
     """  
     fig, ax = plt.subplots(figsize=(10, 2))  
-    librosa.display.waveshow(y, sample_rate=sample_rate, ax=ax)  
+    librosa.display.waveshow(y, sr=sample_rate, ax=ax)  
     ax.set_title('音声波形')  
     ax.set_xlabel('時間 (秒)')  
     ax.set_ylabel('振幅')  
@@ -357,7 +357,7 @@ def plot_speaker_identification(waveform, sample_rate, speaker_segments):
         end = segment["end"]  
         speaker = segment["speaker"]  
         ax.axvspan(start, end, alpha=0.3, color=colors[speaker])  
-    librosa.display.waveshow(waveform, sample_rate=sample_rate, ax=ax)  
+    librosa.display.waveshow(waveform, sr=sample_rate, ax=ax)  
     ax.set_title("話者識別結果")  
     ax.legend(colors.keys())  
     return fig  
