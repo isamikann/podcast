@@ -497,7 +497,7 @@ def create_mp4(audio_path, output_path):
     subprocess.run(cmd, check=True)  
     return output_path  
   
-def cut_audio_by_transcript(transcript, segments, audio_segment, keywords, sample_rate):  
+def cut_audio_by_transcript(transcript, segments, audio_segment, keywords, padding_seconds=0.1):
     """  
     キーワードに基づいて音声をカットする関数  
       
@@ -506,18 +506,44 @@ def cut_audio_by_transcript(transcript, segments, audio_segment, keywords, sampl
         segments (list): オーディオセグメントのリスト  
         audio_segment (AudioSegment): オーディオセグメント  
         keywords (list): カットするキーワードのリスト  
-        sample_rate (int): サンプリングレート  
+        padding_seconds (float): キーワードの前後に追加でカットする時間（秒）
       
     Returns:  
         AudioSegment: キーワードでカット後のオーディオセグメント  
     """  
-    for keyword in keywords:  
-        segments_to_cut = get_keyword_timestamps(transcript, segments, keyword, sample_rate)  
-        for start, end in reversed(segments_to_cut):  
-            audio_segment = audio_segment[:start * 1000] + audio_segment[end * 1000:]  
-    return audio_segment  
+    result_audio = audio_segment
+    cut_count = 0
+    
+    for keyword in keywords:
+        if not keyword.strip():
+            continue
+            
+        segments_to_cut = get_keyword_timestamps(transcript, segments, keyword)
+        
+        # 前後のパディングを追加してカット範囲を拡大
+        padded_segments = []
+        for start, end in segments_to_cut:
+            padded_start = max(0, start - padding_seconds)
+            padded_end = min(len(result_audio) / 1000, end + padding_seconds)
+            padded_segments.append((padded_start, padded_end))
+        
+        # 重複を解消してマージ
+        padded_segments.sort()
+        merged_segments = []
+        for segment in padded_segments:
+            if not merged_segments or segment[0] > merged_segments[-1][1]:
+                merged_segments.append(segment)
+            else:
+                merged_segments[-1] = (merged_segments[-1][0], max(merged_segments[-1][1], segment[1]))
+        
+        # 後ろから順にカット
+        for start, end in reversed(merged_segments):
+            result_audio = result_audio[:int(start * 1000)] + result_audio[int(end * 1000):]
+            cut_count += 1
+            
+    return result_audio
   
-def get_keyword_timestamps(transcript, segments, keyword, sample_rate):  
+def get_keyword_timestamps(transcript, segments, keyword):
     """  
     キーワードが見つかる時間（秒）範囲を返す関数  
       
@@ -525,25 +551,36 @@ def get_keyword_timestamps(transcript, segments, keyword, sample_rate):
         transcript (str): 音声の文字起こし結果  
         segments (list): オーディオセグメントのリスト  
         keyword (str): キーワード  
-        sample_rate (int): サンプリングレート  
       
     Returns:  
         list: キーワードが見つかる開始時間と終了時間のリスト  
     """  
-    timestamps = []  
-    complete_text = transcript  
-    start_time = 0  
-    for segment in segments:  
-        start, end = segment  
-        text = complete_text[start:end]  
-        text = text.lower()  
-        keyword = keyword.lower()  
-        if keyword in text:  
-            keyword_start = start_time + (text.find(keyword) * (end - start)) / len(text)  
-            keyword_end = keyword_start + (len(keyword) * (end - start)) / len(text)  
-            timestamps.append((keyword_start, keyword_end))  
-        start_time += (end - start) / sample_rate  
-    return timestamps  
+    timestamps = []
+    
+    # 文字起こしの中でキーワードを検索
+    lower_transcript = transcript.lower()
+    lower_keyword = keyword.lower()
+    
+    # 文字起こしの中のキーワードの位置を全て見つける
+    positions = []
+    start_pos = 0
+    while True:
+        pos = lower_transcript.find(lower_keyword, start_pos)
+        if pos == -1:
+            break
+        positions.append((pos, pos + len(keyword)))
+        start_pos = pos + 1
+    
+    # 各位置に対応する時間を計算
+    total_duration = sum((end - start) for start, end in segments) / 1000  # 秒単位
+    char_duration = total_duration / len(transcript) if transcript else 0
+    
+    for start_char, end_char in positions:
+        start_time = start_char * char_duration
+        end_time = end_char * char_duration
+        timestamps.append((start_time, end_time))
+    
+    return timestamps
 
 def transcribe_audio_partial(audio_segment, language_code, start, end, sample_rate):  
     """  
@@ -666,6 +703,17 @@ with tab1:
                 st.write(f"言語: {preset_settings['language']}")
                 st.write(f"BGM: {preset_settings['bgm_file'] if preset_settings['bgm_file'] else 'なし'}")
                 st.write(f"BGM音量: {preset_settings['bgm_volume']} dB")
+
+            # 編集タブ内の自動編集実行ボタンの上に追加
+            with st.expander("キーワードカット設定"):
+                keyword_cut_enabled = st.checkbox("キーワードカットを有効にする")
+                if keyword_cut_enabled:
+                    keywords_to_cut = st.text_area("カットするキーワード（1行に1つ）", 
+                                                  placeholder="例: えーと\nあの\nそのー")
+                    keyword_list = [k.strip() for k in keywords_to_cut.split("\n") if k.strip()]
+                    keyword_padding = st.slider("キーワード前後の余白 (秒)", 0.0, 1.0, 0.1, 0.1, 
+                                              help="キーワードの前後に追加でカットする時間")
+                    st.info(f"カット対象: {', '.join(keyword_list) if keyword_list else 'なし'}")
             
             # 自動編集実行ボタン
             if st.button("自動編集を実行", type="primary"):
@@ -703,6 +751,32 @@ with tab1:
                         # 文字起こし（言語設定に基づく）
                         language_code = {"日本語": "ja-JP", "英語": "en-US", "スペイン語": "es-ES"}[preset_settings['language']]
                         st.session_state.transcript = transcribe_audio(processed_path, language_code)
+
+                        # 自動編集実行ボタンの処理内（st.session_state.transcript = transcribe_audio(processed_path, language_code)の後に追加）
+                        # 文字起こし後にキーワードカット処理を実行
+                        if keyword_cut_enabled and keyword_list:
+                            with st.spinner('キーワードをカット中...'):
+                                try:
+                                    # キーワードに基づいてオーディオをカット
+                                    processed_audio = cut_audio_by_transcript(
+                                        st.session_state.transcript, 
+                                        segments, 
+                                        processed_audio, 
+                                        keyword_list,
+                                        keyword_padding
+                                    )
+                                    
+                                    # 処理済み音声を更新
+                                    processed_path = os.path.join(st.session_state.temp_dir, "processed_keywords_cut.wav")
+                                    processed_audio.export(processed_path, format="wav")
+                                    st.session_state.processed_audio = processed_audio
+                                    
+                                    # キーワードカット後の文字起こしを再実行
+                                    st.session_state.transcript = transcribe_audio(processed_path, language_code)
+                                    
+                                    st.success(f"{len(keyword_list)}個のキーワードをカットしました")
+                                except Exception as e:
+                                    st.error(f"キーワードカットエラー: {e}")
                         
                         st.success("音声の編集が完了しました！")
                     except Exception as e:
