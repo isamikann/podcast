@@ -830,49 +830,49 @@ with tab1:
                 else:
                     st.warning("キーワードが選択されていません。カットは行われません。")
                 
-                # 自動編集実行ボタン
-                if st.button("自動編集を実行", type="primary"):
-                    with st.spinner('音声を編集中...'):
-                        try:
-                            # ノイズリダクション済みのオーディオを使用
-                            reduced_path = os.path.join(st.session_state.temp_dir, "reduced.wav")
-                            processed_audio = AudioSegment.from_file(reduced_path)
-                            
-                            # 音量ノーマライズ
-                            if preset_settings['volume_normalize']:
-                                processed_audio = normalize_audio(processed_audio)
-                            
-                            # キーワードカット
-                            if selected_keywords:
-                                all_text = " ".join([t["text"] for t in st.session_state.transcripts])
-                                processed_audio, cut_count = cut_audio_by_transcript(
-                                    all_text,
-                                    st.session_state.segments,
-                                    processed_audio,
-                                    selected_keywords,
-                                    keyword_padding
-                                )
-                                st.success(f"{cut_count}箇所のキーワードをカットしました")
-                            
-                            # 効果音の追加
-                            processed_audio = add_sound_effects(processed_audio, preset_settings['intro_music'], 
-                                                              preset_settings['add_transitions'], st.session_state.segments)
-                            
-                            # BGMの追加
-                            if preset_settings['bgm_file'] and preset_settings['bgm_file'] in st.session_state.bgm_files:
-                                bgm_path = st.session_state.bgm_files[preset_settings['bgm_file']]
-                                processed_audio = add_bgm(processed_audio, bgm_path, preset_settings['bgm_volume'])
-                            
-                            # 処理後の音声を保存
-                            st.session_state.processed_audio = processed_audio
-                            processed_path = os.path.join(st.session_state.temp_dir, "processed.wav")
-                            processed_audio.export(processed_path, format="wav")
-                            
-                            st.success("音声の編集が完了しました！プレビュータブで確認してください。")
-                            
-                        except Exception as e:
-                            st.error(f"編集処理エラー: {e}")
-                            st.exception(e)
+            # 自動編集実行ボタン
+            if st.button("自動編集を実行", type="primary"):
+                with st.spinner('音声を編集中...'):
+                    try:
+                        # ノイズリダクション済みのオーディオを使用
+                        reduced_path = os.path.join(st.session_state.temp_dir, "reduced.wav")
+                        processed_audio = AudioSegment.from_file(reduced_path)
+                        
+                        # 音量ノーマライズ
+                        if preset_settings['volume_normalize']:
+                            processed_audio = normalize_audio(processed_audio)
+                        
+                        # キーワードカット
+                        if selected_keywords:
+                            all_text = " ".join([t["text"] for t in st.session_state.transcripts])
+                            processed_audio, cut_count = cut_audio_by_transcript(
+                                all_text,
+                                st.session_state.segments,
+                                processed_audio,
+                                selected_keywords,
+                                keyword_padding
+                            )
+                            st.success(f"{cut_count}箇所のキーワードをカットしました")
+                        
+                        # 効果音の追加
+                        processed_audio = add_sound_effects(processed_audio, preset_settings['intro_music'], 
+                                                          preset_settings['add_transitions'], st.session_state.segments)
+                        
+                        # BGMの追加
+                        if preset_settings['bgm_file'] and preset_settings['bgm_file'] in st.session_state.bgm_files:
+                            bgm_path = st.session_state.bgm_files[preset_settings['bgm_file']]
+                            processed_audio = add_bgm(processed_audio, bgm_path, preset_settings['bgm_volume'])
+                        
+                        # 処理後の音声を保存
+                        st.session_state.processed_audio = processed_audio
+                        processed_path = os.path.join(st.session_state.temp_dir, "processed.wav")
+                        processed_audio.export(processed_path, format="wav")
+                        
+                        st.success("音声の編集が完了しました！プレビュータブで確認してください。")
+                        
+                    except Exception as e:
+                        st.error(f"編集処理エラー: {e}")
+                        st.exception(e)
         else:  
             st.error("選択したプリセットが見つかりません。プリセットを作成してください。")  
     else:  
