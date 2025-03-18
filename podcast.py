@@ -582,7 +582,7 @@ def get_keyword_timestamps(transcript, segments, keyword):
     
     return timestamps
 
-def transcribe_audio_partial(audio_segment, language_code, start, end, sample_rate):  
+def transcribe_audio_partial(audio_path, language_code, start_ms, end_ms, sample_rate):  
     """  
     サブセグメントの文字起こしを行う部分関数  
       
@@ -596,7 +596,10 @@ def transcribe_audio_partial(audio_segment, language_code, start, end, sample_ra
     Returns:  
         str: サブセグメントの文字起こし結果  
     """  
-    partial_audio = audio_segment[start:end]  
+    # 音声ファイルのサブセグメントをロードする  
+    audio_segment = AudioSegment.from_file(audio_path)  
+    partial_audio = audio_segment[start_ms:end_ms]  
+      
     with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{st.session_state.original_audio_format}') as tmp_file:  
         partial_audio.export(tmp_file.name, format=st.session_state.original_audio_format)  
         recognizer = sr.Recognizer()  
@@ -604,7 +607,7 @@ def transcribe_audio_partial(audio_segment, language_code, start, end, sample_ra
         with audio_file as source:  
             audio_data = recognizer.record(source)  
             text = recognizer.recognize_google(audio_data, language=language_code)  
-    return text  
+    return text   
   
 def identify_speakers(audio_path, num_speakers=2):  
     """  
@@ -806,16 +809,23 @@ with tab2:
                     st.write(f"セグメント {i+1}: {start_time} - {end_time} (長さ: {duration})")  
   
         # 文字起こし結果の表示  
-        if st.session_state.transcript:  
-            transcript_text = st.session_state.transcript  
+        if st.session_state.segments:  
+            transcript_result = []  
             with st.expander("文字起こし結果", expanded=True):  
-                # 文字起こし結果をセグメントごとに分割して表示する  
                 for i, (start, end) in enumerate(st.session_state.segments):  
-                    segment_transcript = transcribe_audio_partial(processed_path, preset_settings['language'], start, end, st.session_state.sample_rate)  
+                    segment_transcript = transcribe_audio_partial(  
+                        processed_path,   
+                        preset_settings['language'],   
+                        start,   
+                        end,   
+                        st.session_state.sample_rate  
+                    )  
                     start_time = datetime.timedelta(milliseconds=start)  
                     end_time = datetime.timedelta(milliseconds=end)  
                     duration = datetime.timedelta(milliseconds=end - start)  
-                    st.write(f"セグメント {i+1} ({start_time} - {end_time}, 長さ: {duration}): {segment_transcript}")  
+                    segment_info = f"セグメント {i+1} ({start_time} - {end_time}, 長さ: {duration}): {segment_transcript}"  
+                    transcript_result.append(segment_info)  
+                st.write("\n".join(transcript_result))  
   
         # 話者識別結果の視覚化（簡易版）  
         with st.expander("話者識別（実験的機能）"):  
