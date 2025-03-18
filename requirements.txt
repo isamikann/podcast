@@ -1,10 +1,10 @@
 streamlit
+matplotlib
+japanize_matplotlib
 numpy
 librosa
 SoundFile
 speechrecognition
 pydub
-matplotlib
 ffmpeg-python
 pathlib
-japanize_matplotlib
