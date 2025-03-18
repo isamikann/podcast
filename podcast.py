@@ -600,14 +600,15 @@ def transcribe_audio_partial(audio_path, language_code, start_ms, end_ms, sample
     audio_segment = AudioSegment.from_file(audio_path)  
     partial_audio = audio_segment[start_ms:end_ms]  
       
-    with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{st.session_state.original_audio_format}') as tmp_file:  
-        partial_audio.export(tmp_file.name, format=st.session_state.original_audio_format)  
+    # 一時ファイルにWAV形式で保存  
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tmp_file:  
+        partial_audio.export(tmp_file.name, format='wav')  
         recognizer = sr.Recognizer()  
         audio_file = sr.AudioFile(tmp_file.name)  
         with audio_file as source:  
             audio_data = recognizer.record(source)  
             text = recognizer.recognize_google(audio_data, language=language_code)  
-    return text   
+    return text  
   
 def identify_speakers(audio_path, num_speakers=2):  
     """  
