@@ -16,6 +16,7 @@ import base64
 import streamlit as st
 import subprocess  
 import tempfile  
+from pydub import AudioSegment
 
 
 def initialize_session_state():  
@@ -396,22 +397,23 @@ def transcribe_audio_with_julius(wav_path):
         with tempfile.NamedTemporaryFile(delete=False, suffix='.raw') as raw_file:  
             raw_path = raw_file.name  
           
-        # 音声ファイルの変換  
-        cmd_convert = ['sox', wav_path, '-r', '16000', '-c', '1', '-b', '16', '-e', 'signed-integer', raw_path]  
-        subprocess.run(cmd_convert, check=True)  
+        # pydubを使って音声ファイルの変換  
+        audio = AudioSegment.from_file(wav_path, format="wav")  
+        audio = audio.set_frame_rate(16000).set_channels(1).set_sample_width(2)  
+        raw_data = audio.raw_data  
+  
+        with open(raw_path, "wb") as f:  
+            f.write(raw_data)  
           
         # Juliusでの文字起こし  
-        cmd_julius = [  
+        julius_cmd = [  
             'julius',  
+            '-C', 'julius_files/julius.jconf',  
             '-input', 'rawfile',  
-            '-filelist', 'filelist.txt',  
-            '-h', 'path_to_your_hmme_definitions',  
-            '-hlist', 'path_to_your_hmmdefs',  
-            '-dfa', 'path_to_your_dfa_file',  
-            '-v', 'path_to_your_voca_file'  
+            '-filelist', 'filelist.txt'  # 実際には必要なし  
         ]  
   
-        process = subprocess.Popen(cmd_julius, stdout=subprocess.PIPE, stderr=subprocess.PIPE)  
+        process = subprocess.Popen(julius_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)  
         stdout, stderr = process.communicate()  
   
         if process.returncode != 0:  
