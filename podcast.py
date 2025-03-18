@@ -719,35 +719,77 @@ with tab1:
                     st.info(f"カット対象: {', '.join(keyword_list) if keyword_list else 'なし'}")  
               
                     # 自動編集実行ボタン  
-                    if st.button("自動編集を実行", type="primary"):  
-                        with st.spinner('音声を編集中...'):  
-                            try:  
-                                y_reduced = reduce_noise(st.session_state.waveform, st.session_state.sample_rate, preset_settings['noise_reduction'])  
-                                reduced_path = os.path.join(st.session_state.temp_dir, "reduced.wav")  
-                                sf.write(reduced_path, y_reduced, st.session_state.sample_rate)  
-                                processed_audio = AudioSegment.from_file(reduced_path)  
-              
-                                if preset_settings['volume_normalize']:  
-                                    processed_audio = normalize_audio(processed_audio)  
-              
-                                segments = segment_audio(processed_audio, preset_settings['silence_threshold'], preset_settings['min_silence_duration'])  
-                                st.session_state.segments = segments  
-              
-                                processed_audio = add_sound_effects(processed_audio, preset_settings['intro_music'], preset_settings['add_transitions'], segments)  
+                 if st.button("自動編集を実行", type="primary"):  
+                    with st.spinner('音声を編集中...'):  
+                        try:  
+                            y_reduced = reduce_noise(st.session_state.waveform, st.session_state.sample_rate, preset_settings['noise_reduction'])  
+                            reduced_path = os.path.join(st.session_state.temp_dir, "reduced.wav")  
+                            sf.write(reduced_path, y_reduced, st.session_state.sample_rate)  
+                            processed_audio = AudioSegment.from_file(reduced_path)  
+                              
+                            if preset_settings['volume_normalize']:  
+                                processed_audio = normalize_audio(processed_audio)  
                                   
-                                if preset_settings['bgm_file'] and preset_settings['bgm_file'] in st.session_state.bgm_files:  
-                                    bgm_path = st.session_state.bgm_files[preset_settings['bgm_file']]  
-                                    processed_audio = add_bgm(processed_audio, bgm_path, preset_settings['bgm_volume'])  
-              
-                                st.session_state.processed_audio = processed_audio  
-                                processed_path = os.path.join(st.session_state.temp_dir, "processed.wav")  
+                            segments = segment_audio(processed_audio, preset_settings['silence_threshold'], preset_settings['min_silence_duration'])  
+                            st.session_state.segments = segments  
+                              
+                            processed_audio = add_sound_effects(processed_audio, preset_settings['intro_music'], preset_settings['add_transitions'], segments)  
+                                      
+                            if preset_settings['bgm_file'] and preset_settings['bgm_file'] in st.session_state.bgm_files:  
+                                bgm_path = st.session_state.bgm_files[preset_settings['bgm_file']]  
+                                processed_audio = add_bgm(processed_audio, bgm_path, preset_settings['bgm_volume'])  
+                              
+                            st.session_state.processed_audio = processed_audio  
+                            processed_path = os.path.join(st.session_state.temp_dir, "processed.wav")  
+                            processed_audio.export(processed_path, format="wav")  
+                              
+                            language_code = {"日本語": "ja-JP", "英語": "en-US", "スペイン語": "es-ES"}[preset_settings['language']]  
+                            st.session_state.transcripts = []  
+                              
+                            unique_keywords = set()  
+                            for start, end in segments:  
+                                try:  
+                                    transcript = transcribe_audio_partial(processed_audio, language_code, start, end, st.session_state.sample_rate)  
+                                    st.session_state.transcripts.append({  
+                                        "start": start,  
+                                        "end": end,  
+                                        "text": transcript  
+                                    })  
+                                    for word in transcript.split():  
+                                        unique_keywords.add(word.strip())  
+                                except Exception as e:  
+                                    st.error(f"セグメント {start} - {end} の文字起こしエラー: {e}")  
+                                    continue  
+                              
+                            st.session_state.unique_keywords = list(unique_keywords)  
+                            st.session_state.unique_keywords.sort()  
+                            st.session_state.keyword_cut_enabled = True  
+                              
+                            st.success("音声の編集が完了しました！キーワード選択に進んでください。")  
+                        except Exception as e:  
+                            st.error(f"編集処理エラー: {e}")  
+                      
+            if 'keyword_cut_enabled' in st.session_state and st.session_state.keyword_cut_enabled:  
+                with st.expander("キーワードカット設定"):  
+                    selected_keywords = st.multiselect("カットするキーワードを選択してください", st.session_state.unique_keywords)  
+                    keyword_padding = st.slider("キーワード前後の余白 (秒)", 0.0, 1.0, 0.1, 0.1, help="キーワードの前後に追加でカットする時間")  
+                      
+                    if st.button("キーワードを基にカットを実行", type="primary"):  
+                        with st.spinner('キーワードをカット中...'):  
+                            try:  
+                                processed_audio = cut_audio_by_transcript(  
+                                    '\n'.join([t['text'] for t in st.session_state.transcripts]),  
+                                    st.session_state.segments,  
+                                    st.session_state.processed_audio,  
+                                    selected_keywords,  
+                                    keyword_padding  
+                                )  
+                                processed_path = os.path.join(st.session_state.temp_dir, "processed_keywords_cut.wav")  
                                 processed_audio.export(processed_path, format="wav")  
-              
-                                language_code = {"日本語": "ja-JP", "英語": "en-US", "スペイン語": "es-ES"}[preset_settings['language']]  
+                                st.session_state.processed_audio = processed_audio  
+                                  
                                 st.session_state.transcripts = []  
-              
-                                unique_keywords = set()  
-                                for start, end in segments:  
+                                for start, end in st.session_state.segments:  
                                     try:  
                                         transcript = transcribe_audio_partial(processed_audio, language_code, start, end, st.session_state.sample_rate)  
                                         st.session_state.transcripts.append({  
@@ -755,60 +797,19 @@ with tab1:
                                             "end": end,  
                                             "text": transcript  
                                         })  
-                                        for word in transcript.split():  
-                                            unique_keywords.add(word.strip())  
                                     except Exception as e:  
-                                        st.error(f"セグメント {start} - {end} の文字起こしエラー: {e}")  
+                                        st.error(f"キーワードカット後のセグメント {start} - {end} の文字起こしエラー: {e}")  
                                         continue  
-              
-                                st.session_state.unique_keywords = list(unique_keywords)  
-                                st.session_state.unique_keywords.sort()  
-                                st.session_state.keyword_cut_enabled = True  
-              
-                                st.success("音声の編集が完了しました！キーワード選択に進んでください。")  
-                            except Exception as e:  
-                                st.error(f"編集処理エラー: {e}")  
-              
-                    if 'keyword_cut_enabled' in st.session_state and st.session_state.keyword_cut_enabled:  
-                        with st.expander("キーワードカット設定"):  
-                            selected_keywords = st.multiselect("カットするキーワードを選択してください", st.session_state.unique_keywords)  
-                            keyword_padding = st.slider("キーワード前後の余白 (秒)", 0.0, 1.0, 0.1, 0.1, help="キーワードの前後に追加でカットする時間")  
-              
-                            if st.button("キーワードを基にカットを実行", type="primary"):  
-                                with st.spinner('キーワードをカット中...'):  
-                                    try:  
-                                        processed_audio = cut_audio_by_transcript(  
-                                            '\n'.join([t['text'] for t in st.session_state.transcripts]),  
-                                            st.session_state.segments,  
-                                            st.session_state.processed_audio,  
-                                            selected_keywords,  
-                                            keyword_padding  
-                                        )  
-                                        processed_path = os.path.join(st.session_state.temp_dir, "processed_keywords_cut.wav")  
-                                        processed_audio.export(processed_path, format="wav")  
-                                        st.session_state.processed_audio = processed_audio  
-              
-                                        st.session_state.transcripts = []  
-                                        for start, end in st.session_state.segments:  
-                                            try:  
-                                                transcript = transcribe_audio_partial(processed_audio, language_code, start, end, st.session_state.sample_rate)  
-                                                st.session_state.transcripts.append({  
-                                                    "start": start,  
-                                                    "end": end,  
-                                                    "text": transcript  
-                                                })  
-                                            except Exception as e:  
-                                                st.error(f"キーワードカット後のセグメント {start} - {end} の文字起こしエラー: {e}")  
-                                                continue  
                                   
-                                        st.success(f"選択されたキーワードをカットしました")  
-                                    except Exception as e:  
-                                        st.error(f"キーワードカットエラー: {e}")  
+                                st.success(f"選択されたキーワードをカットしました")  
+                            except Exception as e:  
+                                st.error(f"キーワードカットエラー: {e}")  
         else:  
             st.error("選択したプリセットが見つかりません。プリセットを作成してください。")  
     else:  
         st.info("音声ファイルをアップロードしてください。")  
   
+# 編集結果プレビュータブの内容  
 with tab2:  
     st.header("編集結果プレビュー")  
   
