@@ -84,9 +84,9 @@ with st.sidebar:
             # デフォルトプリセットを作成して保存
             default_presets = {
                 "標準": {
-                    "noise_reduction": 0.01,
+                    "noise_reduction": 0.0,
                     "silence_threshold": -40,
-                    "min_silence_duration": 300,
+                    "min_silence_duration": 150,
                     "volume_normalize": True,
                     "intro_music": "なし",
                     "add_transitions": False,
@@ -176,7 +176,7 @@ with st.sidebar:
             # 各パラメータの編集UI
             noise_reduction = st.slider("ノイズリダクションレベル", 0.0, 1.0, current_preset["noise_reduction"], 0.01)
             silence_threshold = st.slider("沈黙検出閾値(dB)", -60, -20, current_preset["silence_threshold"], 1)
-            min_silence_duration = st.slider("最小沈黙時間(ms)", 300, 2000, current_preset["min_silence_duration"], 50)
+            min_silence_duration = st.slider("最小沈黙時間(ms)", 0, 2000, current_preset["min_silence_duration"], 50)
             volume_normalize = st.checkbox("音量ノーマライゼーション", current_preset["volume_normalize"])
             intro_music = st.selectbox("イントロ音楽", ["なし", "プロフェッショナル", "アップビート", "リラックス"], 
                                     ["なし", "プロフェッショナル", "アップビート", "リラックス"].index(current_preset["intro_music"]))
@@ -582,7 +582,7 @@ def get_keyword_timestamps(transcript, segments, keyword):
     
     return timestamps
 
-def transcribe_audio_partial(audio_path, language_code, start_ms, end_ms, sample_rate):  
+def transcribe_audio_partial(audio_segment, language_code, start, end, sample_rate):  
     """  
     サブセグメントの文字起こしを行う部分関数  
       
@@ -596,13 +596,9 @@ def transcribe_audio_partial(audio_path, language_code, start_ms, end_ms, sample
     Returns:  
         str: サブセグメントの文字起こし結果  
     """  
-    # 音声ファイルのサブセグメントをロードする  
-    audio_segment = AudioSegment.from_file(audio_path)  
-    partial_audio = audio_segment[start_ms:end_ms]  
-      
-    # 一時ファイルにWAV形式で保存  
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tmp_file:  
-        partial_audio.export(tmp_file.name, format='wav')  
+    partial_audio = audio_segment[start:end]  
+    with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{st.session_state.original_audio_format}') as tmp_file:  
+        partial_audio.export(tmp_file.name, format=st.session_state.original_audio_format)  
         recognizer = sr.Recognizer()  
         audio_file = sr.AudioFile(tmp_file.name)  
         with audio_file as source:  
@@ -791,54 +787,40 @@ with tab1:
         st.info("音声ファイルをアップロードしてください。")
 
 
-# プレビュータブの内容  
-with tab2:  
-    st.header("編集結果プレビュー")  
-  
-    if st.session_state.processed_audio is not None:  
-        # 音声プレイヤー  
-        processed_path = os.path.join(st.session_state.temp_dir, "processed.wav")  
-        st.audio(processed_path)  
-  
-        # セグメント情報の表示  
-        if st.session_state.segments:  
-            with st.expander("セグメント情報"):  
-                for i, (start, end) in enumerate(st.session_state.segments):  
-                    start_time = datetime.timedelta(milliseconds=start)  
-                    end_time = datetime.timedelta(milliseconds=end)  
-                    duration = datetime.timedelta(milliseconds=end - start)  
-                    st.write(f"セグメント {i+1}: {start_time} - {end_time} (長さ: {duration})")  
-  
-        # 文字起こし結果の表示  
-        if st.session_state.segments:  
-            transcript_result = []  
-            with st.expander("文字起こし結果", expanded=True):  
-                for i, (start, end) in enumerate(st.session_state.segments):  
-                    segment_transcript = transcribe_audio_partial(  
-                        processed_path,   
-                        preset_settings['language'],   
-                        start,   
-                        end,   
-                        st.session_state.sample_rate  
-                    )  
-                    start_time = datetime.timedelta(milliseconds=start)  
-                    end_time = datetime.timedelta(milliseconds=end)  
-                    duration = datetime.timedelta(milliseconds=end - start)  
-                    segment_info = f"セグメント {i+1} ({start_time} - {end_time}, 長さ: {duration}): {segment_transcript}"  
-                    transcript_result.append(segment_info)  
-                st.write("\n".join(transcript_result))  
-  
-        # 話者識別結果の視覚化（簡易版）  
-        with st.expander("話者識別（実験的機能）"):  
-            if st.button("話者識別を実行"):  
-                with st.spinner('話者を識別中...'):  
-                    processed_path = os.path.join(st.session_state.temp_dir, "processed.wav")  
-                    speaker_segments = identify_speakers(processed_path)  
-                    y, sample_rate = librosa.load(processed_path, sr=None)  
-                    fig = plot_speaker_identification(y, sample_rate, speaker_segments)  
-                    st.pyplot(fig)  
-    else:  
-        st.info("先に「編集」タブで音声を編集してください。")  
+# プレビュータブの内容
+with tab2:
+    st.header("編集結果プレビュー")
+    
+    if st.session_state.processed_audio is not None:
+        # 音声プレイヤー
+        processed_path = os.path.join(st.session_state.temp_dir, "processed.wav")
+        st.audio(processed_path)
+        
+        # セグメント情報の表示
+        if st.session_state.segments:
+            with st.expander("セグメント情報"):
+                for i, (start, end) in enumerate(st.session_state.segments):
+                    start_time = datetime.timedelta(milliseconds=start)
+                    end_time = datetime.timedelta(milliseconds=end)
+                    duration = datetime.timedelta(milliseconds=end-start)
+                    st.write(f"セグメント {i+1}: {start_time} - {end_time} (長さ: {duration})")
+        
+        # 文字起こし結果の表示
+        if st.session_state.transcript:
+            with st.expander("文字起こし結果", expanded=True):
+                st.write(st.session_state.transcript)
+                
+        # 話者識別結果の視覚化（簡易版）
+        with st.expander("話者識別（実験的機能）"):
+            if st.button("話者識別を実行"):
+                with st.spinner('話者を識別中...'):
+                    processed_path = os.path.join(st.session_state.temp_dir, "processed.wav")
+                    speaker_segments = identify_speakers(processed_path)
+                    y, sample_rate = librosa.load(processed_path, sr=None)
+                    fig = plot_speaker_identification(y, sample_rate, speaker_segments)
+                    st.pyplot(fig)
+    else:
+        st.info("先に「編集」タブで音声を編集してください。")
 
 
 # エクスポートタブの内容
