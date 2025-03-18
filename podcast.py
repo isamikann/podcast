@@ -762,7 +762,7 @@ with tab1:
                 # 頻度が高く、フィラーっぽい単語を優先  
                 suggested_keywords = []  
                 for word in sorted(word_freq.items(), key=lambda x: x[1], reverse=True):  
-                    if word[1] >= 3:  # 3回以上出現する単語を候補とする  
+                    if word[1] >= 2:  # 2回以上出現する単語を候補とする  
                         suggested_keywords.append(word[0])  
   
                 st.session_state.unique_keywords = suggested_keywords[:20]  
