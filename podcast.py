@@ -13,7 +13,10 @@ import subprocess
 import shutil  
 from pathlib import Path  
 import base64  
-import streamlit as st  
+import streamlit as st
+import subprocess  
+import tempfile  
+from your_julius_module import transcribe_audio_with_julius
 
 
 def initialize_session_state():  
@@ -386,7 +389,58 @@ def transcribe_audio(audio_path, language_code):
             text = recognizer.recognize_google(audio_data, language=language_code)  
         return text  
     except Exception as e:  
-        return f"文字起こしエラー: {str(e)}"  
+        return f"文字起こしエラー: {str(e)}" 
+
+def transcribe_audio_with_julius(wav_path):  
+    """ Juliusを使って音声ファイルを文字起こしする関数 """  
+    try:  
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.raw') as raw_file:  
+            raw_path = raw_file.name  
+          
+        # 音声ファイルの変換  
+        cmd_convert = ['sox', wav_path, '-r', '16000', '-c', '1', '-b', '16', '-e', 'signed-integer', raw_path]  
+        subprocess.run(cmd_convert, check=True)  
+          
+        # Juliusでの文字起こし  
+        cmd_julius = [  
+            'julius',  
+            '-input', 'rawfile',  
+            '-filelist', 'filelist.txt',  
+            '-h', 'path_to_your_hmme_definitions',  
+            '-hlist', 'path_to_your_hmmdefs',  
+            '-dfa', 'path_to_your_dfa_file',  
+            '-v', 'path_to_your_voca_file'  
+        ]  
+  
+        process = subprocess.Popen(cmd_julius, stdout=subprocess.PIPE, stderr=subprocess.PIPE)  
+        stdout, stderr = process.communicate()  
+  
+        if process.returncode != 0:  
+            return None, stderr.decode('utf-8')  
+          
+        transcript = parse_julius_output(stdout.decode('utf-8'))  
+          
+        return transcript, None  
+  
+    except Exception as e:  
+        return None, str(e)  
+  
+def parse_julius_output(output):  
+    """ Juliusの出力をパースする関数 """  
+    lines = output.split('\n')  
+    transcript = ""  
+    for line in lines:  
+        if "sentence1:" in line:  
+            transcript = line.split(':', 1)[1].strip()  
+            break  
+    return transcript  
+  
+# 文字起こしを実行  
+transcript, error = transcribe_audio_with_julius("/path/to/your/audio.wav")  
+if error:  
+    print(f"Error: {error}")  
+else:  
+    print(f"Transcript: {transcript}")  
   
 def segment_audio(audio_segment, silence_thresh, min_silence_len):  
     """  
@@ -978,6 +1032,25 @@ with tab3:
                     st.error(f"エクスポートエラー: {e}")  
     else:  
         st.info("先に「編集」タブで音声を編集してください。")  
+
+with tab4:  
+    st.title("Juliusを用いた音声文字起こしデモ")  
+      
+    uploaded_file = st.file_uploader("音声ファイルをアップロード", type=["wav"])  
+    if uploaded_file:  
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tmp_file:  
+            tmp_file.write(uploaded_file.getvalue())  
+            tmp_wav_path = tmp_file.name  
+          
+        st.audio(tmp_wav_path)  
+  
+        with st.spinner('文字起こし中...'):  
+            transcript, error = transcribe_audio_with_julius(tmp_wav_path)  
+            if error:  
+                st.error(f"文字起こしエラー: {error}")  
+            else:  
+                st.success("文字起こしが完了しました")  
+                st.text_area("文字起こしの結果", transcript, height=200)  
   
 def cleanup():  
     """アプリケーション終了時に一時ファイルを削除"""  
