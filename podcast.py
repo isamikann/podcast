@@ -719,7 +719,7 @@ with tab1:
                     st.info(f"カット対象: {', '.join(keyword_list) if keyword_list else 'なし'}")  
               
                     # 自動編集実行ボタン  
-                     if st.button("自動編集を実行", type="primary"):  
+                    if st.button("自動編集を実行", type="primary"):  
                         with st.spinner('音声を編集中...'):  
                             try:  
                                 y_reduced = reduce_noise(st.session_state.waveform, st.session_state.sample_rate, preset_settings['noise_reduction'])  
@@ -768,6 +768,7 @@ with tab1:
                                 st.success("音声の編集が完了しました！キーワード選択に進んでください。")  
                             except Exception as e:  
                                 st.error(f"編集処理エラー: {e}")  
+                     
                       
             if 'keyword_cut_enabled' in st.session_state and st.session_state.keyword_cut_enabled:  
                 with st.expander("キーワードカット設定"):  
