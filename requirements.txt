@@ -1,5 +1,4 @@
 streamlit
-matplotlib
 numpy
 librosa
 SoundFile
@@ -7,3 +6,4 @@ speechrecognition
 pydub
 ffmpeg-python
 pathlib
+matplotlib
