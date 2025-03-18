@@ -7,3 +7,4 @@ pydub
 matplotlib
 ffmpeg-python
 pathlib
+japanize_matplotlib
