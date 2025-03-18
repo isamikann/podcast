@@ -9,36 +9,13 @@ import soundfile as sf
 import speech_recognition as sr  
 from pydub import AudioSegment, silence, effects  
 import matplotlib.pyplot as plt  
-from matplotlib import font_manager 
+import japanize_matplotlib
 import subprocess  
 import shutil  
 from pathlib import Path  
 import base64  
 import streamlit as st  
 
-# フォントのパスを指定します  
-font_path = "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc"  
-  
-# 日本語フォントを読み込む  
-font = font_manager.FontProperties(fname=font_path)  
-  
-# matplotlibにデフォルトフォントとして適用  
-plt.rcParams["font.family"] = font.get_name()  
-plt.rcParams['axes.unicode_minus'] = False  # マイナス符号を日本語フォントで表示  
-
-# フォント設定をする関数の追加  
-def set_japanese_font():  
-    """  
-    日本語フォントを設定する関数  
-    """  
-    font_path = "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc"  
-    font = font_manager.FontProperties(fname=font_path)  
-    plt.rcParams["font.family"] = font.get_name()  
-    plt.rcParams['axes.unicode_minus'] = False  # マイナス符号を日本語フォントで表示  
-    return font  
-  
-# アプリの初期設定でフォント設定を行う  
-font = set_japanese_font()  
 
 def initialize_session_state():  
     """Streamlitのセッション状態を初期化する関数"""  
@@ -157,9 +134,9 @@ def plot_waveform(y, sr):
     """  
     fig, ax = plt.subplots(figsize=(10, 2))  
     librosa.display.waveshow(y, sr=sr, ax=ax)  
-    ax.set_title('音声波形', fontproperties=font)
-    ax.set_xlabel('時間 (秒)', fontproperties=font)
-    ax.set_ylabel('振幅', fontproperties=font)
+    ax.set_title('音声波形')  
+    ax.set_xlabel('時間 (秒)')  
+    ax.set_ylabel('振幅')  
     return fig  
 
 def plot_speaker_identification(waveform, sr, speaker_segments):  
@@ -176,16 +153,14 @@ def plot_speaker_identification(waveform, sr, speaker_segments):
     """  
     fig, ax = plt.subplots(figsize=(10, 3))  
     colors = {"話者A": "blue", "話者B": "red"}  
-      
     for segment in speaker_segments:  
         start = segment["start"]  
         end = segment["end"]  
         speaker = segment["speaker"]  
         ax.axvspan(start, end, alpha=0.3, color=colors[speaker])  
-      
     librosa.display.waveshow(waveform, sr=sr, ax=ax)  
-    ax.set_title("話者識別結果", fontproperties=font)  
-    ax.legend(colors.keys(), prop=font)  # フォントプロパティを指定  
+    ax.set_title("話者識別結果")  
+    ax.legend(colors.keys())  
     return fig  
   
 @st.cache_data  
@@ -574,20 +549,20 @@ with tab1:
         st.write("波形分析")  
         fig = plot_waveform(st.session_state.waveform, st.session_state.sr)  
         st.pyplot(fig)  
-          
+  
         if st.button("文字起こしを実行"):  
             with st.spinner('文字起こしを実行中...'):  
                 text = transcribe_audio(wav_path, language_code[language])  
                 st.session_state.transcript = text  
                 st.write("文字起こし結果:")  
                 st.text_area("テキスト", value=text, height=200)  
-                  
+  
         if st.button("話者識別を実行"):  
             with st.spinner("話者識別を実行中..."):  
                 speaker_segments = identify_speakers(wav_path)  
                 st.write("話者識別結果:")  
                 for i, segment in enumerate(speaker_segments):  
-                    st.write(f"{segment['speaker']}: {segment['start']:.2f}秒 - {segment['end']:.2f}秒")    
+                    st.write(f"{segment['speaker']}: {segment['start']:.2f}秒 - {segment['end']:.2f}秒")     
                   
                 # 話者識別結果のグラフ化  
                 fig, ax = plt.subplots(figsize=(10, 3))  
