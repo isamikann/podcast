@@ -872,8 +872,8 @@ with tab1:
                     st.error(f"編集処理エラー: {e}")  
                     st.exception(e)  
   
-else:  
-    st.info("音声ファイルをアップロードしてください。")  
+    else:  
+        st.info("音声ファイルをアップロードしてください。")  
   
 # 編集結果プレビュータブの内容  
 with tab2:  
