@@ -310,15 +310,19 @@ def load_audio(file):
     Returns:  
         tuple: 音声データ（numpy array）、サンプリングレート、Waveファイルのパス、AudioSegmentオブジェクト  
     """  
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tmp_file:  
-        tmp_file.write(file.getvalue())  
-        tmp_path = tmp_file.name  
-        audio_segment = AudioSegment.from_file(tmp_path)  
-        wav_path = os.path.join(st.session_state.temp_dir, "original.wav")  
-        audio_segment.export(wav_path, format="wav")  
-        y, sample_rate = librosa.load(wav_path, sr=None)  
-        st.session_state.original_audio_format = file.name.split('.')[-1]  
-        return y, sample_rate, wav_path, audio_segment  
+    try:  
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tmp_file:  
+            tmp_file.write(file.getvalue())  
+            tmp_path = tmp_file.name  
+            audio_segment = AudioSegment.from_file(tmp_path)  
+            wav_path = os.path.join(st.session_state.temp_dir, "original.wav")  
+            audio_segment.export(wav_path, format="wav")  
+            y, sample_rate = librosa.load(wav_path, sr=None)  
+            st.session_state.original_audio_format = file.name.split('.')[-1]  
+            return y, sample_rate, wav_path, audio_segment  
+    except Exception as e:  
+        st.error(f"音声ファイルの読み込みエラー: {e}")  
+        return None, None, None, None   
   
 def plot_waveform(y, sample_rate):  
     """  
@@ -719,48 +723,43 @@ with tab1:
             if st.button("自動編集を実行", type="primary"):  
                 with st.spinner('音声を編集中...'):  
                     try:  
-                        # ノイズリダクション  
+                        # ノイズリダクション処理など  
                         y_reduced = reduce_noise(st.session_state.waveform, st.session_state.sample_rate, preset_settings['noise_reduction'])  
                         reduced_path = os.path.join(st.session_state.temp_dir, "reduced.wav")  
                         sf.write(reduced_path, y_reduced, st.session_state.sample_rate)  
                         processed_audio = AudioSegment.from_file(reduced_path)  
                           
-                        # 音量ノーマライゼーション  
                         if preset_settings['volume_normalize']:  
                             processed_audio = normalize_audio(processed_audio)  
                           
-                        # 沈黙検出とセグメント化  
                         segments = segment_audio(processed_audio, preset_settings['silence_threshold'], preset_settings['min_silence_duration'])  
                         st.session_state.segments = segments  
                           
-                        # 効果音の追加  
                         processed_audio = add_sound_effects(processed_audio, preset_settings['intro_music'], preset_settings['add_transitions'], segments)  
-                          
-                        # BGM追加  
+              
                         if preset_settings['bgm_file'] and preset_settings['bgm_file'] in st.session_state.bgm_files:  
                             bgm_path = st.session_state.bgm_files[preset_settings['bgm_file']]  
                             processed_audio = add_bgm(processed_audio, bgm_path, preset_settings['bgm_volume'])  
-                          
-                        # 処理済み音声をセッションに保存  
+              
                         st.session_state.processed_audio = processed_audio  
-                          
-                        # 処理済み音声を一時ファイルに保存  
                         processed_path = os.path.join(st.session_state.temp_dir, "processed.wav")  
                         processed_audio.export(processed_path, format="wav")  
                           
-                        # 文字起こし（言語設定に基づく）  
                         language_code = {"日本語": "ja-JP", "英語": "en-US", "スペイン語": "es-ES"}[preset_settings['language']]  
                         st.session_state.transcripts = []  
               
                         for start, end in segments:  
-                            transcript = transcribe_audio_partial(processed_audio, language_code, start, end, st.session_state.sample_rate)  
-                            st.session_state.transcripts.append({  
-                                "start": start,  
-                                "end": end,  
-                                "text": transcript  
-                            })  
+                            try:  
+                                transcript = transcribe_audio_partial(processed_audio, language_code, start, end, st.session_state.sample_rate)  
+                                st.session_state.transcripts.append({  
+                                    "start": start,  
+                                    "end": end,  
+                                    "text": transcript  
+                                })  
+                            except Exception as e:  
+                                st.error(f"セグメント {start} - {end} の文字起こしエラー: {e}")  
+                                continue  
               
-                        # ここにキーワード処理のセグメントも適用  
                         if keyword_cut_enabled and keyword_list:  
                             with st.spinner('キーワードをカット中...'):  
                                 try:  
@@ -777,17 +776,21 @@ with tab1:
               
                                     st.session_state.transcripts = []  
                                     for start, end in segments:  
-                                        transcript = transcribe_audio_partial(processed_audio, language_code, start, end, st.session_state.sample_rate)  
-                                        st.session_state.transcripts.append({  
-                                            "start": start,  
-                                            "end": end,  
-                                            "text": transcript  
-                                        })  
+                                        try:  
+                                            transcript = transcribe_audio_partial(processed_audio, language_code, start, end, st.session_state.sample_rate)  
+                                            st.session_state.transcripts.append({  
+                                                "start": start,  
+                                                "end": end,  
+                                                "text": transcript  
+                                            })  
+                                        except Exception as e:  
+                                            st.error(f"キーワードカット後のセグメント {start} - {end} の文字起こしエラー: {e}")  
+                                            continue  
                                       
                                     st.success(f"{len(keyword_list)}個のキーワードをカットしました")  
                                 except Exception as e:  
                                     st.error(f"キーワードカットエラー: {e}")  
-                          
+              
                         st.success("音声の編集が完了しました！")  
                     except Exception as e:  
                         st.error(f"編集処理エラー: {e}")  
