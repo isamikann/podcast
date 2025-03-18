@@ -7,3 +7,4 @@ pydub
 ffmpeg-python
 pathlib
 matplotlib
+soundfile
