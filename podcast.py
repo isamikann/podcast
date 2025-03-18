@@ -427,7 +427,7 @@ def load_project(project_file):
         st.session_state.sr = sr  
     settings = project_info["settings"]  
     st.sidebar.slider("ノイズリダクションレベル", 0.0, 1.0, settings["noise_reduction"], 0.1)  
-        st.sidebar.slider("沈黙検出閾値(dB)", -60, -20, settings["silence_threshold"], 5)  
+    st.sidebar.slider("沈黙検出閾値(dB)", -60, -20, settings["silence_threshold"], 5)  
     st.sidebar.slider("最小沈黙時間(ms)", 300, 2000, settings["min_silence_duration"], 100)  
     st.sidebar.checkbox("音量ノーマライゼーション", settings["volume_normalize"])  
     st.sidebar.selectbox("イントロ音楽", ["なし", "プロフェッショナル", "アップビート", "リラックス"], index=["なし", "プロフェッショナル", "アップビート", "リラックス"].index(settings["intro_music"]))  
