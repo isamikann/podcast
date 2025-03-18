@@ -1,6 +1,5 @@
 streamlit
 matplotlib
-japanize_matplotlib
 numpy
 librosa
 SoundFile
