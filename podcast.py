@@ -984,4 +984,5 @@ def cleanup():
     if 'temp_dir' in st.session_state and os.path.exists(st.session_state.temp_dir):  
         shutil.rmtree(st.session_state.temp_dir)  
   
-st.on_event("app_unmounted", cleanup)  
+import atexit  
+atexit.register(cleanup)  
