@@ -16,6 +16,8 @@ from pathlib import Path
 import base64  
 import streamlit as st  
 
+# 日本語フォントの設定
+japanize_matplotlib.japanize()
 
 def initialize_session_state():  
     """Streamlitのセッション状態を初期化する関数"""  
