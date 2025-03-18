@@ -316,7 +316,7 @@ def load_audio(file):
         audio_segment = AudioSegment.from_file(tmp_path)  
         wav_path = os.path.join(st.session_state.temp_dir, "original.wav")  
         audio_segment.export(wav_path, format="wav")  
-        y, sample_rate = librosa.load(wav_path, sample_rate=None)  
+        y, sample_rate = librosa.load(wav_path, sr=None)  
         st.session_state.original_audio_format = file.name.split('.')[-1]  
         return y, sample_rate, wav_path, audio_segment  
   
@@ -580,7 +580,7 @@ def identify_speakers(audio_path, num_speakers=2):
     Returns:  
         list: 話者識別結果のリスト  
     """  
-    y, sample_rate = librosa.load(audio_path, sample_rate=None)  
+    y, sample_rate = librosa.load(audio_path, sr=None)  
     segments = []  
     window_size = len(y) // 10  
     for i in range(0, len(y), window_size):  
@@ -742,7 +742,7 @@ with tab2:
                 with st.spinner('話者を識別中...'):
                     processed_path = os.path.join(st.session_state.temp_dir, "processed.wav")
                     speaker_segments = identify_speakers(processed_path)
-                    y, sample_rate = librosa.load(processed_path, sample_rate=None)
+                    y, sample_rate = librosa.load(processed_path, sr=None)
                     fig = plot_speaker_identification(y, sample_rate, speaker_segments)
                     st.pyplot(fig)
     else:
