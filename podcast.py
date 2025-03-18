@@ -22,8 +22,8 @@ def initialize_session_state():
         st.session_state.audio_data = None  
     if 'waveform' not in st.session_state:  
         st.session_state.waveform = None  
-    if 'sr' not in st.session_state:  
-        st.session_state.sr = None  
+    if 'sample_rate' not in st.session_state:  
+        st.session_state.sample_rate = None  
     if 'segments' not in st.session_state:  
         st.session_state.segments = []  
     if 'transcript' not in st.session_state:  
@@ -193,9 +193,9 @@ with st.sidebar:
             if st.button("プリセットをプレビュー") and st.session_state.audio_data:
                 with st.spinner('プレビュー生成中...'):
                     # プレビュー用の処理を実行
-                    y_reduced = reduce_noise(st.session_state.waveform, st.session_state.sr, noise_reduction)
+                    y_reduced = reduce_noise(st.session_state.waveform, st.session_state.sample_rate, noise_reduction)
                     preview_path = os.path.join(st.session_state.temp_dir, "preview.wav")
-                    sf.write(preview_path, y_reduced, st.session_state.sr)
+                    sf.write(preview_path, y_reduced, st.session_state.sample_rate)
                     processed_audio = AudioSegment.from_file(preview_path)
                     
                     if volume_normalize:
@@ -316,35 +316,35 @@ def load_audio(file):
         audio_segment = AudioSegment.from_file(tmp_path)  
         wav_path = os.path.join(st.session_state.temp_dir, "original.wav")  
         audio_segment.export(wav_path, format="wav")  
-        y, sr = librosa.load(wav_path, sr=None)  
+        y, sample_rate = librosa.load(wav_path, sample_rate=None)  
         st.session_state.original_audio_format = file.name.split('.')[-1]  
-        return y, sr, wav_path, audio_segment  
+        return y, sample_rate, wav_path, audio_segment  
   
-def plot_waveform(y, sr):  
+def plot_waveform(y, sample_rate):  
     """  
     波形をプロットする関数  
       
     Args:  
         y (numpy array): 音声データ  
-        sr (int): サンプリングレート  
+        sample_rate (int): サンプリングレート  
       
     Returns:  
         Figure: MatplotlibのFigureオブジェクト  
     """  
     fig, ax = plt.subplots(figsize=(10, 2))  
-    librosa.display.waveshow(y, sr=sr, ax=ax)  
+    librosa.display.waveshow(y, sample_rate=sample_rate, ax=ax)  
     ax.set_title('音声波形')  
     ax.set_xlabel('時間 (秒)')  
     ax.set_ylabel('振幅')  
     return fig  
 
-def plot_speaker_identification(waveform, sr, speaker_segments):  
+def plot_speaker_identification(waveform, sample_rate, speaker_segments):  
     """  
     話者識別結果を波形上に表示する関数  
       
     Args:  
         waveform (numpy array): 音声波形データ  
-        sr (int): サンプリングレート  
+        sample_rate (int): サンプリングレート  
         speaker_segments (list): 話者識別結果のセグメントリスト  
       
     Returns:  
@@ -357,7 +357,7 @@ def plot_speaker_identification(waveform, sr, speaker_segments):
         end = segment["end"]  
         speaker = segment["speaker"]  
         ax.axvspan(start, end, alpha=0.3, color=colors[speaker])  
-    librosa.display.waveshow(waveform, sr=sr, ax=ax)  
+    librosa.display.waveshow(waveform, sample_rate=sample_rate, ax=ax)  
     ax.set_title("話者識別結果")  
     ax.legend(colors.keys())  
     return fig  
@@ -407,13 +407,13 @@ def segment_audio(audio_segment, silence_thresh, min_silence_len):
         segments.append((prev_end, len(audio_segment)))  
     return segments  
 
-def reduce_noise(y, sr, reduction_amount):  
+def reduce_noise(y, sample_rate, reduction_amount):  
     """  
     ノイズリダクションを行う関数  
       
     Args:  
         y (numpy array): 音声データ  
-        sr (int): サンプリングレート  
+        sample_rate (int): サンプリングレート  
         reduction_amount (float): ノイズリダクションの強さ（0.0〜1.0）  
       
     Returns:  
@@ -497,7 +497,7 @@ def create_mp4(audio_path, output_path):
     subprocess.run(cmd, check=True)  
     return output_path  
   
-def cut_audio_by_transcript(transcript, segments, audio_segment, keywords, sr):  
+def cut_audio_by_transcript(transcript, segments, audio_segment, keywords, sample_rate):  
     """  
     キーワードに基づいて音声をカットする関数  
       
@@ -506,18 +506,18 @@ def cut_audio_by_transcript(transcript, segments, audio_segment, keywords, sr):
         segments (list): オーディオセグメントのリスト  
         audio_segment (AudioSegment): オーディオセグメント  
         keywords (list): カットするキーワードのリスト  
-        sr (int): サンプリングレート  
+        sample_rate (int): サンプリングレート  
       
     Returns:  
         AudioSegment: キーワードでカット後のオーディオセグメント  
     """  
     for keyword in keywords:  
-        segments_to_cut = get_keyword_timestamps(transcript, segments, keyword, sr)  
+        segments_to_cut = get_keyword_timestamps(transcript, segments, keyword, sample_rate)  
         for start, end in reversed(segments_to_cut):  
             audio_segment = audio_segment[:start * 1000] + audio_segment[end * 1000:]  
     return audio_segment  
   
-def get_keyword_timestamps(transcript, segments, keyword, sr):  
+def get_keyword_timestamps(transcript, segments, keyword, sample_rate):  
     """  
     キーワードが見つかる時間（秒）範囲を返す関数  
       
@@ -525,7 +525,7 @@ def get_keyword_timestamps(transcript, segments, keyword, sr):
         transcript (str): 音声の文字起こし結果  
         segments (list): オーディオセグメントのリスト  
         keyword (str): キーワード  
-        sr (int): サンプリングレート  
+        sample_rate (int): サンプリングレート  
       
     Returns:  
         list: キーワードが見つかる開始時間と終了時間のリスト  
@@ -542,10 +542,10 @@ def get_keyword_timestamps(transcript, segments, keyword, sr):
             keyword_start = start_time + (text.find(keyword) * (end - start)) / len(text)  
             keyword_end = keyword_start + (len(keyword) * (end - start)) / len(text)  
             timestamps.append((keyword_start, keyword_end))  
-        start_time += (end - start) / sr  
+        start_time += (end - start) / sample_rate  
     return timestamps  
 
-def transcribe_audio_partial(audio_segment, language_code, start, end, sr):  
+def transcribe_audio_partial(audio_segment, language_code, start, end, sample_rate):  
     """  
     サブセグメントの文字起こしを行う部分関数  
       
@@ -554,7 +554,7 @@ def transcribe_audio_partial(audio_segment, language_code, start, end, sr):
         language_code (str): 言語コード（例: "ja-JP"）  
         start (int): サブセグメントの開始位置  
         end (int): サブセグメントの終了位置  
-        sr (int): サンプリングレート  
+        sample_rate (int): サンプリングレート  
       
     Returns:  
         str: サブセグメントの文字起こし結果  
@@ -580,7 +580,7 @@ def identify_speakers(audio_path, num_speakers=2):
     Returns:  
         list: 話者識別結果のリスト  
     """  
-    y, sr = librosa.load(audio_path, sr=None)  
+    y, sample_rate = librosa.load(audio_path, sample_rate=None)  
     segments = []  
     window_size = len(y) // 10  
     for i in range(0, len(y), window_size):  
@@ -590,8 +590,8 @@ def identify_speakers(audio_path, num_speakers=2):
         var = np.var(segment)  
         speaker = "話者A" if (mean + var) > 0 else "話者B"  
         segments.append({  
-            "start": i / sr,  
-            "end": end / sr,  
+            "start": i / sample_rate,  
+            "end": end / sample_rate,  
             "speaker": speaker  
         })  
     return segments
@@ -640,15 +640,15 @@ with tab1:
     
     if uploaded_file is not None:
         with st.spinner('音声ファイルを読み込み中...'):
-            y, sr, wav_path, audio_segment = load_audio(uploaded_file)
+            y, sample_rate, wav_path, audio_segment = load_audio(uploaded_file)
             st.session_state.waveform = y
-            st.session_state.sr = sr
+            st.session_state.sample_rate = sample_rate
             st.session_state.audio_data = audio_segment
             
         st.success(f'音声ファイルを読み込みました: {uploaded_file.name}')
         
         # 波形の表示
-        fig = plot_waveform(y, sr)
+        fig = plot_waveform(y, sample_rate)
         st.pyplot(fig)
         
         # 現在選択されているプリセットを取得
@@ -672,9 +672,9 @@ with tab1:
                 with st.spinner('音声を編集中...'):
                     try:
                         # ノイズリダクション
-                        y_reduced = reduce_noise(st.session_state.waveform, st.session_state.sr, preset_settings['noise_reduction'])
+                        y_reduced = reduce_noise(st.session_state.waveform, st.session_state.sample_rate, preset_settings['noise_reduction'])
                         reduced_path = os.path.join(st.session_state.temp_dir, "reduced.wav")
-                        sf.write(reduced_path, y_reduced, st.session_state.sr)
+                        sf.write(reduced_path, y_reduced, st.session_state.sample_rate)
                         processed_audio = AudioSegment.from_file(reduced_path)
                         
                         # 音量ノーマライゼーション
@@ -742,8 +742,8 @@ with tab2:
                 with st.spinner('話者を識別中...'):
                     processed_path = os.path.join(st.session_state.temp_dir, "processed.wav")
                     speaker_segments = identify_speakers(processed_path)
-                    y, sr = librosa.load(processed_path, sr=None)
-                    fig = plot_speaker_identification(y, sr, speaker_segments)
+                    y, sample_rate = librosa.load(processed_path, sample_rate=None)
+                    fig = plot_speaker_identification(y, sample_rate, speaker_segments)
                     st.pyplot(fig)
     else:
         st.info("先に「編集」タブで音声を編集してください。")
