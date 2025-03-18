@@ -804,8 +804,8 @@ with tab1:
                                         st.success(f"選択されたキーワードをカットしました")  
                                     except Exception as e:  
                                         st.error(f"キーワードカットエラー: {e}")  
-            else:  
-                st.error("選択したプリセットが見つかりません。プリセットを作成してください。")  
+        else:  
+            st.error("選択したプリセットが見つかりません。プリセットを作成してください。")  
     else:  
         st.info("音声ファイルをアップロードしてください。")  
   
