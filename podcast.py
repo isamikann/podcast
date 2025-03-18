@@ -84,9 +84,9 @@ with st.sidebar:
             # デフォルトプリセットを作成して保存
             default_presets = {
                 "標準": {
-                    "noise_reduction": 0,
+                    "noise_reduction": 0.01,
                     "silence_threshold": -40,
-                    "min_silence_duration": 250,
+                    "min_silence_duration": 300,
                     "volume_normalize": True,
                     "intro_music": "なし",
                     "add_transitions": False,
