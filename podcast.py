@@ -65,7 +65,7 @@ def get_binary_file_downloader_html(bin_file, file_label='File'):
     return href  
   
 # タブの数を減らして3つに変更
-tab1, tab2, tab3 = st.tabs(["編集", "プレビュー", "エクスポート"])  
+tab1, tab2, tab3, tab4 = st.tabs(["編集", "プレビュー", "エクスポート", "テスト"])  
 
 # サイドバーにプリセット管理の領域を追加
 with st.sidebar:
