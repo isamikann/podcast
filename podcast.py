@@ -9,15 +9,12 @@ import soundfile as sf
 import speech_recognition as sr  
 from pydub import AudioSegment, silence, effects  
 import matplotlib.pyplot as plt  
-import japanize_matplotlib
 import subprocess  
 import shutil  
 from pathlib import Path  
 import base64  
 import streamlit as st  
 
-# 日本語フォントの設定
-japanize_matplotlib.japanize()
 
 def initialize_session_state():  
     """Streamlitのセッション状態を初期化する関数"""  
