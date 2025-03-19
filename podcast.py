@@ -680,34 +680,17 @@ def transcribe_audio_partial(audio_segment, language_code, start, end, sample_ra
         with audio_file as source:  
             audio_data = recognizer.record(source)  
             text = recognizer.recognize_google(audio_data, language=language_code)  
-    return text  
-  
-def identify_speakers(audio_path, num_speakers=2):  
-    """  
-    話者識別を行う簡易版関数  
-      
-    Args:  
-        audio_path (str): 音声ファイルのパス  
-        num_speakers (int): 話者数  
-      
-    Returns:  
-        list: 話者識別結果のリスト  
-    """  
-    y, sample_rate = librosa.load(audio_path, sr=None)  
-    segments = []  
-    window_size = len(y) // 10  
-    for i in range(0, len(y), window_size):  
-        end = min(i + window_size, len(y))  
-        segment = y[i:end]  
-        mean = np.mean(segment)  
-        var = np.var(segment)  
-        speaker = "話者A" if (mean + var) > 0 else "話者B"  
-        segments.append({  
-            "start": i / sample_rate,  
-            "end": end / sample_rate,  
-            "speaker": speaker  
-        })  
-    return segments
+    return text 
+
+def convert_transcript_to_srt(transcripts):  
+    """文字起こし結果をSRTフォーマットに変換する関数"""  
+    srt_content = []  
+    for idx, segment in enumerate(transcripts):  
+        start_time = str(datetime.timedelta(milliseconds=segment['start'])).replace('.', ',')[:12]  
+        end_time = str(datetime.timedelta(milliseconds=segment['end'])).replace('.', ',')[:12]  
+        text = segment['text']  
+        srt_content.append(f"{idx+1}\n{start_time} --> {end_time}\n{text}\n")  
+    return "\n".join(srt_content)  
 
 def add_bgm(audio_segment, bgm_path, bgm_volume):
     """
@@ -759,83 +742,87 @@ with tab1:
             st.session_state.sample_rate = sample_rate  
             st.session_state.audio_data = audio_segment  
   
-        st.success(f'音声ファイルを読み込みました: {uploaded_file.name}')  
+            st.success(f'音声ファイルを読み込みました: {uploaded_file.name}')  
   
-        # アップロード時に文字起こしを自動実行  
-        with st.spinner('文字起こしを実行中...'):  
-            try:  
-                # 現在選択されているプリセットを取得  
-                preset_settings = get_preset_settings(selected_preset)  
+            # アップロード時に文字起こしを自動実行  
+            with st.spinner('文字起こしを実行中...'):  
+                try:  
+                    # 現在選択されているプリセットを取得  
+                    preset_settings = get_preset_settings(selected_preset)  
   
-                # 基本的な前処理（ノイズリダクション）  
-                y_reduced = reduce_noise(y, sample_rate, preset_settings['noise_reduction'])  
-                reduced_path = os.path.join(st.session_state.temp_dir, "reduced.wav")  
-                sf.write(reduced_path, y_reduced, sample_rate)  
-                processed_audio = AudioSegment.from_file(reduced_path)  
+                    # 基本的な前処理（ノイズリダクション）  
+                    y_reduced = reduce_noise(y, sample_rate, preset_settings['noise_reduction'])  
+                    reduced_path = os.path.join(st.session_state.temp_dir, "reduced.wav")  
+                    sf.write(reduced_path, y_reduced, sample_rate)  
+                    processed_audio = AudioSegment.from_file(reduced_path)  
   
-                # セグメント化  
-                segments = segment_audio(processed_audio, preset_settings['silence_threshold'], preset_settings['min_silence_duration'])  
-                st.session_state.segments = segments  
+                    # セグメント化  
+                    segments = segment_audio(processed_audio, preset_settings['silence_threshold'], preset_settings['min_silence_duration'])  
+                    st.session_state.segments = segments  
   
-                # 言語設定  
-                language_code = {"日本語": "ja-JP", "英語": "en-US", "スペイン語": "es-ES"}[preset_settings['language']]  
+                    # 言語設定  
+                    language_code = {"日本語": "ja-JP", "英語": "en-US", "スペイン語": "es-ES"}[preset_settings['language']]  
   
-                # 文字起こし  
-                st.session_state.transcripts = []  
-                unique_keywords = set()  
-
-                MIN_SEGMENT_LENGTH = 1.5  # 秒単位 
+                    # 文字起こし  
+                    st.session_state.transcripts = []  
+                    unique_keywords = set()  
   
-                for start, end in segments:  
-                    if (end - start) / 1000 < MIN_SEGMENT_LENGTH:  
-                        continue  
-                    try:  
-                        transcript = transcribe_audio_partial(processed_audio, language_code, start, end, sample_rate)  
-                        st.session_state.transcripts.append({  
-                            "start": start,  
-                            "end": end,  
-                            "text": transcript  
-                        })  
+                    MIN_SEGMENT_LENGTH = 1.5  # 秒単位  
+                    for start, end in segments:  
+                        if (end - start) / 1000 < MIN_SEGMENT_LENGTH:  
+                            continue  
+                        try:  
+                            transcript = transcribe_audio_partial(processed_audio, language_code, start, end, sample_rate)  
+                            st.session_state.transcripts.append({  
+                                "start": start,  
+                                "end": end,  
+                                "text": transcript  
+                            })  
   
-                        # フィラーや不要な単語を自動検出（日本語の場合）  
-                        if preset_settings['language'] == "日本語":  
-                            fillers = ["えーと", "あの", "そのー", "まぁ", "えっと", "あー", "うーん", "えー", "んー", "わかんない"]  
-                            for filler in fillers:  
-                                if filler in transcript.lower():  
-                                    unique_keywords.add(filler)  
+                            # フィラーや不要な単語を自動検出（日本語の場合）  
+                            if preset_settings['language'] == "日本語":  
+                                fillers = ["えーと", "あの", "そのー", "まぁ", "えっと", "あー", "うーん", "えー", "んー", "わかんない"]  
+                                for filler in fillers:  
+                                    if filler in transcript.lower():  
+                                        unique_keywords.add(filler)  
   
-                        words = transcript.split()  
-                        for word in words:  
-                            word = word.strip().lower()  
-                            if len(word) > 1:  # 1文字の単語は除外  
-                                unique_keywords.add(word)  
+                            words = transcript.split()  
+                            for word in words:  
+                                word = word.strip().lower()  
+                                if len(word) > 1:  # 1文字の単語は除外  
+                                    unique_keywords.add(word)  
   
-                    except Exception as e:  
-                        st.error(f"セグメント {start} - {end} の文字起こしエラー: {e}")  
-                        st.error(traceback.format_exc())  
-                        continue  
+                        except Exception as e:  
+                            st.error(f"セグメント {start} - {end} の文字起こしエラー: {e}")  
+                            st.error(traceback.format_exc())  
+                            continue  
   
-                # 単語の出現頻度でソート  
-                all_text = " ".join([t["text"].lower() for t in st.session_state.transcripts])  
-                word_freq = {}  
-                for word in unique_keywords:  
-                    word_freq[word] = all_text.count(word)  
+                    # 単語の出現頻度でソート  
+                    all_text = " ".join([t["text"].lower() for t in st.session_state.transcripts])  
+                    word_freq = {}  
+                    for word in unique_keywords:  
+                        word_freq[word] = all_text.count(word)  
   
-                # 頻度が高く、フィラーっぽい単語を優先  
-                suggested_keywords = []  
-                for word in sorted(word_freq.items(), key=lambda x: x[1], reverse=True):  
-                    if word[1] >= 2:  # 2回以上出現する単語を候補とする  
-                        suggested_keywords.append(word[0])  
+                    # 頻度が高く、フィラーっぽい単語を優先  
+                    suggested_keywords = []  
+                    for word in sorted(word_freq.items(), key=lambda x: x[1], reverse=True):  
+                        if word[1] >= 2:  # 2回以上出現する単語を候補とする  
+                            suggested_keywords.append(word[0])  
   
-                st.session_state.unique_keywords = suggested_keywords[:20]  
-                st.session_state.all_keywords = list(unique_keywords)  
-                st.session_state.keyword_detection_complete = True  
+                    st.session_state.unique_keywords = suggested_keywords[:20]  
+                    st.session_state.all_keywords = list(unique_keywords)  
+                    st.session_state.keyword_detection_complete = True  
   
-                st.success("文字起こしが完了しました！キーワード選択に進んでください。")  
+                    st.success("文字起こしが完了しました！キーワード選択に進んでください。")  
   
-            except Exception as e:  
-                st.error(f"文字起こし処理エラー: {e}")  
-                st.exception(e)  
+                    # SRT形式で表示  
+                    srt_text = convert_transcript_to_srt(st.session_state.transcripts)  
+                    st.subheader("SRT形式の文字起こし結果")  
+                    st.text_area("SRT形式の文字起こし結果", value=srt_text, height=300)  
+  
+                except Exception as e:  
+                    st.error(f"文字起こし処理エラー: {e}")  
+                    st.exception(e)  
   
         # 波形の表示  
         fig = plot_waveform(y, sample_rate)  
@@ -857,83 +844,38 @@ with tab1:
                 st.write(f"BGM: {preset_settings['bgm_file'] if preset_settings['bgm_file'] else 'なし'}")  
                 st.write(f"BGM音量: {preset_settings['bgm_volume']} dB")  
   
-        # キーワード選択部分  
-        if 'keyword_detection_complete' in st.session_state and st.session_state.keyword_detection_complete:  
-            with st.expander("カットするキーワード選択", expanded=True):  
-                st.info("文字起こしから検出された以下のキーワードをカットできます。必要なものを選択してください。")  
+    # キーワード選択部分  
+    if 'keyword_detection_complete' in st.session_state and st.session_state.keyword_detection_complete:  
+        with st.expander("カットするキーワード選択", expanded=True):  
+            st.info("文字起こしから検出された以下のキーワードをカットできます。必要なものを選択してください。")  
   
-                # よく使われるフィラー音をあらかじめ選択  
-                default_fillers = ["えーと", "あの", "そのー", "まぁ", "えっと", "あー", "うーん"]  
-                default_selections = [word for word in default_fillers if word in st.session_state.unique_keywords]  
+            # よく使われるフィラー音をあらかじめ選択  
+            default_fillers = ["えーと", "あの", "そのー", "まぁ", "えっと", "あー", "うーん"]  
+            default_selections = [word for word in default_fillers if word in st.session_state.unique_keywords]  
   
-                selected_keywords = st.multiselect(  
-                    "カットするキーワードを選択してください",  
-                    options=st.session_state.unique_keywords,  
-                    default=default_selections,  
-                    help="選択したキーワードが含まれる部分を音声からカットします"  
-                )  
+            selected_keywords = st.multiselect(  
+                "カットするキーワードを選択してください",  
+                options=st.session_state.unique_keywords,  
+                default=default_selections,  
+                help="選択したキーワードが含まれる部分を音声からカットします"  
+            )  
   
-            with st.expander("リストにないキーワードを追加"):  
-                additional_keywords = st.text_input("追加キーワード（カンマ区切り）",  
-                                                    placeholder="例: えと, その, など",  
-                                                    help="上のリストにないキーワードを追加できます")  
-                if additional_keywords:  
-                    additional_list = [k.strip() for k in additional_keywords.split(",") if k.strip()]  
-                    selected_keywords.extend(additional_list)  
+        with st.expander("リストにないキーワードを追加"):  
+            additional_keywords = st.text_input("追加キーワード（カンマ区切り）",  
+                                                placeholder="例: えと, その, など",  
+                                                help="上のリストにないキーワードを追加できます")  
+            if additional_keywords:  
+                additional_list = [k.strip() for k in additional_keywords.split(",") if k.strip()]  
+                selected_keywords.extend(additional_list)  
   
-            keyword_padding = st.slider("キーワード前後の余白 (秒)", 0.0, 1.0, 0.1, 0.1,  
-                                        help="キーワードの前後に追加でカットする時間")  
+        keyword_padding = st.slider("キーワード前後の余白 (秒)", 0.0, 1.0, 0.1, 0.1,  
+                                    help="キーワードの前後に追加でカットする時間")  
   
-            # 選択されたキーワードを表示  
-            if selected_keywords:  
-                st.success(f"選択されたキーワード: {', '.join(selected_keywords)}")  
-            else:  
-                st.warning("キーワードが選択されていません。カットは行われません。")  
-  
-        # 自動編集実行ボタン  
-        if st.button("自動編集を実行", type="primary"):  
-            with st.spinner('音声を編集中...'):  
-                try:  
-                    # ノイズリダクション済みのオーディオを使用  
-                    reduced_path = os.path.join(st.session_state.temp_dir, "reduced.wav")  
-                    processed_audio = AudioSegment.from_file(reduced_path)  
-  
-                    # 音量ノーマライズ  
-                    if preset_settings['volume_normalize']:  
-                        processed_audio = normalize_audio(processed_audio)  
-  
-                    # キーワードカット  
-                    if selected_keywords:  
-                        all_text = " ".join([t["text"] for t in st.session_state.transcripts])  
-                        processed_audio, cut_count = cut_audio_by_transcript(  
-                            all_text,  
-                            st.session_state.segments,  
-                            processed_audio,  
-                            selected_keywords,  
-                            keyword_padding  
-                        )  
-                        st.success(f"{cut_count}箇所のキーワードをカットしました")  
-  
-                    # 効果音の追加  
-                    processed_audio = add_sound_effects(processed_audio, preset_settings['intro_music'],  
-                                                       preset_settings['add_transitions'], st.session_state.segments)  
-  
-                    # BGMの追加  
-                    if preset_settings['bgm_file'] and preset_settings['bgm_file'] in st.session_state.bgm_files:  
-                        bgm_path = st.session_state.bgm_files[preset_settings['bgm_file']]  
-                        processed_audio = add_bgm(processed_audio, bgm_path, preset_settings['bgm_volume'])  
-  
-                    # 処理後の音声を保存  
-                    st.session_state.processed_audio = processed_audio  
-                    processed_path = os.path.join(st.session_state.temp_dir, "processed.wav")  
-                    processed_audio.export(processed_path, format="wav")  
-  
-                    st.success("音声の編集が完了しました！プレビュータブで確認してください。")  
-  
-                except Exception as e:  
-                    st.error(f"編集処理エラー: {e}")  
-                    st.exception(e)  
-  
+        # 選択されたキーワードを表示  
+        if selected_keywords:  
+            st.success(f"選択されたキーワード: {', '.join(selected_keywords)}")  
+        else:  
+            st.warning("キーワードが選択されていません。カットは行われません。")  
     else:  
         st.info("音声ファイルをアップロードしてください。")  
   
