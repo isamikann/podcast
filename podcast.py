@@ -945,37 +945,6 @@ with tab2:
         processed_path = os.path.join(st.session_state.temp_dir, "processed.wav")  
         st.audio(processed_path)  
   
-        if st.session_state.segments:  
-            with st.expander("セグメント情報"):  
-                for i, (start, end) in enumerate(st.session_state.segments):  
-                    start_time = datetime.timedelta(seconds=start)  
-                    end_time = datetime.timedelta(seconds=end)  
-                    duration = datetime.timedelta(seconds=end - start)  
-                    st.write(f"セグメント {i + 1}: {start_time} - {end_time} (長さ: {duration})")  
-  
-        if st.session_state.transcripts:  
-            with st.expander("文字起こし結果", expanded=True):  
-                for i, transcript in enumerate(st.session_state.transcripts):  
-                    try:  
-                        start_time = datetime.timedelta(seconds=transcript["start"])  
-                        end_time = datetime.timedelta(seconds=transcript["end"])  
-                        st.markdown(f"**【セグメント {i + 1}】{start_time} - {end_time}**")  
-                        st.write(transcript["text"])  
-                        st.markdown("---")  
-                    except Exception as e:  
-                        st.error(f"文字起こし結果の表示エラー: {e}")  
-                        continue  
-  
-        if st.button("話者識別を実行"):  
-            with st.spinner('話者を識別中...'):  
-                try:  
-                    processed_path = os.path.join(st.session_state.temp_dir, "processed.wav")  
-                    speaker_segments = identify_speakers(processed_path)  
-                    y, sample_rate = librosa.load(processed_path, sr=None)  
-                    fig = plot_speaker_identification(y, sample_rate, speaker_segments)  
-                    st.pyplot(fig)  
-                except Exception as e:  
-                    st.error(f"話者識別エラー: {e}")  
     else:  
         st.info("先に「編集」タブで音声を編集してください。")  
   
