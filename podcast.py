@@ -806,6 +806,7 @@ with tab1:
   
                     except Exception as e:  
                         st.error(f"セグメント {start} - {end} の文字起こしエラー: {e}")  
+                        st.error(traceback.format_exc())  
                         continue  
   
                 # 単語の出現頻度でソート  
