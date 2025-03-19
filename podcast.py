@@ -46,8 +46,8 @@ def initialize_session_state():
 initialize_session_state()  
 
 
-st.set_page_config(page_title="ポッドキャスト自動音声編集アプリ", layout="wide")  
-st.title("ポッドキャスト自動音声編集アプリ")  
+st.set_page_config(page_title="自動音声編集アプリ", layout="wide")  
+st.title("自動音声編集アプリ")  
   
 def get_binary_file_downloader_html(bin_file, file_label='File'):  
     """  
@@ -638,6 +638,7 @@ def get_keyword_timestamps(transcript, segments, keyword):
             segment_text = st.session_state.transcripts[i]['text']
             
             # セグメント内のキーワードの位置を全て見つける
+            
             segment_lower = segment_text.lower()
             start_pos = 0
             while True:
