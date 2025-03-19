@@ -783,7 +783,7 @@ with tab1:
                 st.session_state.transcripts = []  
                 unique_keywords = set()  
 
-                MIN_SEGMENT_LENGTH = 1.0  # 秒単位 
+                MIN_SEGMENT_LENGTH = 1.5  # 秒単位 
   
                 for start, end in segments:  
                     if (end - start) / 1000 < MIN_SEGMENT_LENGTH:  
