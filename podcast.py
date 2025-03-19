@@ -782,8 +782,12 @@ with tab1:
                 # 文字起こし  
                 st.session_state.transcripts = []  
                 unique_keywords = set()  
+
+                MIN_SEGMENT_LENGTH = 1.0  # 秒単位 
   
                 for start, end in segments:  
+                    if (end - start) / 1000 < MIN_SEGMENT_LENGTH:  
+                        continue  
                     try:  
                         transcript = transcribe_audio_partial(processed_audio, language_code, start, end, sample_rate)  
                         st.session_state.transcripts.append({  
