@@ -824,9 +824,9 @@ with tab1:
                     st.error(f"文字起こし処理エラー: {e}")  
                     st.exception(e)  
   
-        # 波形の表示  
-        fig = plot_waveform(y, sample_rate)  
-        st.pyplot(fig)  
+        # # 波形の表示  
+        # fig = plot_waveform(y, sample_rate)  
+        # st.pyplot(fig)  
   
         # 現在選択されているプリセットを取得  
         preset_settings = get_preset_settings(selected_preset)  
