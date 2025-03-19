@@ -180,7 +180,7 @@ with st.sidebar:
             # 各パラメータの編集UI
             noise_reduction = st.slider("ノイズリダクションレベル", 0.0, 1.0, current_preset["noise_reduction"], 0.01)
             silence_threshold = st.slider("沈黙検出閾値(dB)", -60, -20, current_preset["silence_threshold"], 1)
-            min_silence_duration = st.slider("最小沈黙時間(ms)", 0, 2000, current_preset["min_silence_duration"], 50)
+            min_silence_duration = st.slider("最小沈黙時間(ms)", 0, 2000, current_preset["min_silence_duration"], 10)
             volume_normalize = st.checkbox("音量ノーマライゼーション", current_preset["volume_normalize"])
             intro_music = st.selectbox("イントロ音楽", ["なし", "プロフェッショナル", "アップビート", "リラックス"], 
                                     ["なし", "プロフェッショナル", "アップビート", "リラックス"].index(current_preset["intro_music"]))
