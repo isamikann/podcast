@@ -17,6 +17,7 @@ import streamlit as st
 import subprocess  
 import tempfile  
 from pydub import AudioSegment
+import traceback  
 
 
 def initialize_session_state():  
