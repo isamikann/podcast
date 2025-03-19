@@ -876,10 +876,8 @@ with tab1:
             st.success(f"選択されたキーワード: {', '.join(selected_keywords)}")  
         else:  
             st.warning("キーワードが選択されていません。カットは行われません。")  
-    else:  
-        st.info("音声ファイルをアップロードしてください。") 
 
-    # 自動編集実行ボタン  
+        # 自動編集実行ボタン  
         if st.button("自動編集を実行", type="primary"):  
             with st.spinner('音声を編集中...'):  
                 try:  
@@ -922,6 +920,10 @@ with tab1:
                 except Exception as e:  
                     st.error(f"編集処理エラー: {e}")  
                     st.exception(e)  
+        
+    else:  
+        st.info("音声ファイルをアップロードしてください。") 
+    
 
   
 # 編集結果プレビュータブの内容  
