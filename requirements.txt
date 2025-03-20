@@ -4,6 +4,5 @@ librosa
 SoundFile
 pydub
 ffmpeg-python
-pathlib
 soundfile
 faster-whisper  
