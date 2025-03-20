@@ -2,10 +2,8 @@ streamlit
 numpy
 librosa
 SoundFile
-speechrecognition
 pydub
 ffmpeg-python
 pathlib
-matplotlib
 soundfile
 faster-whisper  
