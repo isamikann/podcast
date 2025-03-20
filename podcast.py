@@ -393,58 +393,7 @@ def transcribe_audio(audio_path, language_code):
     except Exception as e:  
         return f"文字起こしエラー: {str(e)}" 
 
-def transcribe_audio_with_julius(wav_path):  
-    """ Juliusを使って音声ファイルを文字起こしする関数 """  
-    try:  
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.raw') as raw_file:  
-            raw_path = raw_file.name  
-          
-        # pydubを使って音声ファイルの変換  
-        audio = AudioSegment.from_file(wav_path, format="wav")  
-        audio = audio.set_frame_rate(16000).set_channels(1).set_sample_width(2)  
-        raw_data = audio.raw_data  
-  
-        with open(raw_path, "wb") as f:  
-            f.write(raw_data)  
-          
-        # Juliusでの文字起こし  
-        julius_cmd = [  
-            'julius',  
-            '-C', 'julius_files/julius.jconf',  
-            '-input', 'rawfile',  
-            '-filelist', 'filelist.txt'  # 実際には必要なし  
-        ]  
-  
-        process = subprocess.Popen(julius_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)  
-        stdout, stderr = process.communicate()  
-  
-        if process.returncode != 0:  
-            return None, stderr.decode('utf-8')  
-          
-        transcript = parse_julius_output(stdout.decode('utf-8'))  
-          
-        return transcript, None  
-  
-    except Exception as e:  
-        return None, str(e)  
-  
-def parse_julius_output(output):  
-    """ Juliusの出力をパースする関数 """  
-    lines = output.split('\n')  
-    transcript = ""  
-    for line in lines:  
-        if "sentence1:" in line:  
-            transcript = line.split(':', 1)[1].strip()  
-            break  
-    return transcript  
-  
-# 文字起こしを実行  
-transcript, error = transcribe_audio_with_julius("/path/to/your/audio.wav")  
-if error:  
-    print(f"Error: {error}")  
-else:  
-    print(f"Transcript: {transcript}")  
-  
+
 def segment_audio(audio_segment, silence_thresh, min_silence_len):  
     """  
     音声データを沈黙部分でセグメント化する関数  
@@ -729,9 +678,7 @@ def add_bgm(audio_segment, bgm_path, bgm_volume):
     except Exception as e:
         st.error(f"BGM追加エラー: {e}")
         return audio_segment
-
-from faster_whisper import WhisperModel  
-  
+ 
 @st.cache_data  
 def transcribe_audio_with_whisper(audio_path, language_code):  
     """  
@@ -1022,7 +969,7 @@ with tab3:
         st.info("先に「編集」タブで音声を編集してください。")  
 
 with tab4:  
-    st.title("Juliusを用いた音声文字起こしデモ")  
+    st.title("whisperを用いた音声文字起こしデモ")  
       
     uploaded_file = st.file_uploader("音声ファイルをアップロード", type=["wav"])  
     if uploaded_file:  
@@ -1034,7 +981,7 @@ with tab4:
   
         with st.spinner('文字起こし中...'):  
             # Whisperを用いた文字起こしを実行  
-            transcript = transcribe_audio_with_whisper(wav_path, language_code)  
+            transcript = transcribe_audio_with_whisper(tmp_wav_path, language_code)  
             if "Whisper 文字起こしエラー" in transcript:  
                 st.error(transcript)  
             else:  
