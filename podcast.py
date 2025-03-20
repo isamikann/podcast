@@ -329,23 +329,6 @@ def load_audio(file):
         st.error(f"音声ファイルの読み込みエラー: {e}")  
         return None, None, None, None   
   
-def plot_waveform(y, sample_rate):  
-    """  
-    波形をプロットする関数  
-      
-    Args:  
-        y (numpy array): 音声データ  
-        sample_rate (int): サンプリングレート  
-      
-    Returns:  
-        Figure: MatplotlibのFigureオブジェクト  
-    """  
-    fig, ax = plt.subplots(figsize=(10, 2))  
-    librosa.display.waveshow(y, sr=sample_rate, ax=ax)  
-    ax.set_title('音声波形')  
-    ax.set_xlabel('時間 (秒)')  
-    ax.set_ylabel('振幅')  
-    return fig  
 
 def plot_speaker_identification(waveform, sample_rate, speaker_segments):  
     """  
@@ -792,10 +775,6 @@ with tab1:
                     st.error(f"文字起こし処理エラー: {e}")  
                     st.exception(e)  
   
-        # # 波形の表示  
-        # fig = plot_waveform(y, sample_rate)  
-        # st.pyplot(fig)  
-  
         # 現在選択されているプリセットを取得  
         preset_settings = get_preset_settings(selected_preset)  
   
@@ -966,30 +945,6 @@ with tab3:
                     st.error(f"エクスポートエラー: {e}")  
     else:  
         st.info("先に「編集」タブで音声を編集してください。")  
-
-with tab4:  
-    st.title("whisperを用いた音声文字起こしデモ")  
-
-    # 言語選択  
-    language_option = st.selectbox("言語を選択してください", ["日本語", "英語", "スペイン語"])  
-    language_code = {"日本語": "ja-JP", "英語": "en-US", "スペイン語": "es-ES"}[language_option]  
-      
-    uploaded_file = st.file_uploader("音声ファイルをアップロード", type=["wav"])  
-    if uploaded_file:  
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tmp_file:  
-            tmp_file.write(uploaded_file.getvalue())  
-            tmp_wav_path = tmp_file.name  
-          
-        st.audio(tmp_wav_path)  
-  
-        with st.spinner('文字起こし中...'):  
-            # Whisperを用いた文字起こしを実行  
-            transcript = transcribe_audio_with_whisper(tmp_wav_path, language_code)  
-            if "Whisper 文字起こしエラー" in transcript:  
-                st.error(transcript)  
-            else:  
-                st.success("Whisperでの文字起こしが完了しました")  
-                st.text_area("文字起こしの結果", transcript, height=200)  
   
 def cleanup():  
     """アプリケーション終了時に一時ファイルを削除"""  
