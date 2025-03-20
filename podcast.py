@@ -6,9 +6,7 @@ import datetime
 import numpy as np  
 import librosa  
 import soundfile as sf  
-import speech_recognition as sr  
 from pydub import AudioSegment, silence, effects  
-import matplotlib.pyplot as plt  
 import subprocess  
 import shutil  
 from pathlib import Path  
