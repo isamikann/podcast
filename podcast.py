@@ -695,7 +695,7 @@ def transcribe_audio_with_whisper(audio_segment, language_code):
             audio_segment.export(tmp_file.name, format='wav')  
             tmp_path = tmp_file.name  
   
-        model = WhisperModel("base", device="cpu")  
+        model = WhisperModel("small", device="cpu")  
         segments, info = model.transcribe(tmp_path, language=language_code.split('-')[0])  
           
         transcript = " ".join([segment.text for segment in segments])  
