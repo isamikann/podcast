@@ -981,6 +981,8 @@ with tab4:
   
         with st.spinner('文字起こし中...'):  
             # Whisperを用いた文字起こしを実行  
+            # 言語設定  
+            language_code = {"日本語": "ja-JP", "英語": "en-US", "スペイン語": "es-ES"}[preset_settings['language']]  
             transcript = transcribe_audio_with_whisper(tmp_wav_path, language_code)  
             if "Whisper 文字起こしエラー" in transcript:  
                 st.error(transcript)  
