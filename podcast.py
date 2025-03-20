@@ -679,25 +679,29 @@ def add_bgm(audio_segment, bgm_path, bgm_volume):
         st.error(f"BGM追加エラー: {e}")
         return audio_segment
  
-@st.cache_data  
-def transcribe_audio_with_whisper(audio_path, language_code):  
+  
+def transcribe_audio_with_whisper(audio_segment, language_code):  
     """  
     Whisperを使って音声ファイルを文字起こしする関数  
     Args:  
-        audio_path (str): 音声ファイルのパス  
+        audio_segment (AudioSegment): 音声データのセグメント  
         language_code (str): 言語コード（例: "ja-JP"）  
     Returns:  
         str: 書き起こしたテキスト  
     """  
     try:  
+        # 一時ファイルにセグメントを保存  
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tmp_file:  
+            audio_segment.export(tmp_file.name, format='wav')  
+            tmp_path = tmp_file.name  
+  
         model = WhisperModel("base", device="cpu")  
-        segments, info = model.transcribe(audio_path, language=language_code.split('-')[0])  
+        segments, info = model.transcribe(tmp_path, language=language_code.split('-')[0])  
           
         transcript = " ".join([segment.text for segment in segments])  
         return transcript  
     except Exception as e:  
         return f"Whisper 文字起こしエラー: {str(e)}"  
-
 
 with tab1:  
     st.header("音声編集")  
@@ -732,23 +736,34 @@ with tab1:
                     # 言語設定  
                     language_code = {"日本語": "ja-JP", "英語": "en-US", "スペイン語": "es-ES"}[preset_settings['language']]  
   
-                    # Whisperを用いた文字起こし  
-                    transcript = transcribe_audio_with_whisper(reduced_path, language_code)  
-                    st.session_state.transcripts = [{"start": 0, "end": len(y_reduced) * (1000 // sample_rate), "text": transcript}]  
-  
-                    # フィラーや不要な単語を自動検出（日本語の場合）  
+                    # 文字起こし  
+                    st.session_state.transcripts = []  
                     unique_keywords = set()  
-                    if preset_settings['language'] == "日本語":  
-                        fillers = ["えーと", "あの", "そのー", "まぁ", "えっと", "あー", "うーん", "えー", "んー", "わかんない"]  
-                        for filler in fillers:  
-                            if filler in transcript.lower():  
-                                unique_keywords.add(filler)  
   
-                    words = transcript.split()  
-                    for word in words:  
-                        word = word.strip().lower()  
-                        if len(word) > 1:  # 1文字の単語は除外  
-                            unique_keywords.add(word)  
+                    MIN_SEGMENT_LENGTH = 1.5  # 秒単位  
+                    for start, end in segments:  
+                        if (end - start) / 1000 < MIN_SEGMENT_LENGTH:  
+                            continue  
+                        segment_audio = processed_audio[start:end]  
+                        transcript = transcribe_audio_with_whisper(segment_audio, language_code)  
+                        st.session_state.transcripts.append({  
+                            "start": start,  
+                            "end": end,  
+                            "text": transcript  
+                        })  
+  
+                        # フィラーや不要な単語を自動検出（日本語の場合）  
+                        if preset_settings['language'] == "日本語":  
+                            fillers = ["えーと", "あの", "そのー", "まぁ", "えっと", "あー", "うーん", "えー", "んー", "わかんない"]  
+                            for filler in fillers:  
+                                if filler in transcript.lower():  
+                                    unique_keywords.add(filler)  
+  
+                        words = transcript.split()  
+                        for word in words:  
+                            word = word.strip().lower()  
+                            if len(word) > 1:  # 1文字の単語は除外  
+                                unique_keywords.add(word)  
   
                     # 単語の出現頻度でソート  
                     all_text = " ".join([t["text"].lower() for t in st.session_state.transcripts])  
