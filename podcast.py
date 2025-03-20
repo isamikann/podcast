@@ -970,6 +970,10 @@ with tab3:
 
 with tab4:  
     st.title("whisperを用いた音声文字起こしデモ")  
+
+    # 言語選択  
+    language_option = st.selectbox("言語を選択してください", ["日本語", "英語", "スペイン語"])  
+    language_code = {"日本語": "ja-JP", "英語": "en-US", "スペイン語": "es-ES"}[language_option]  
       
     uploaded_file = st.file_uploader("音声ファイルをアップロード", type=["wav"])  
     if uploaded_file:  
@@ -981,8 +985,6 @@ with tab4:
   
         with st.spinner('文字起こし中...'):  
             # Whisperを用いた文字起こしを実行  
-            # 言語設定  
-            language_code = {"日本語": "ja-JP", "英語": "en-US", "スペイン語": "es-ES"}[preset_settings['language']]  
             transcript = transcribe_audio_with_whisper(tmp_wav_path, language_code)  
             if "Whisper 文字起こしエラー" in transcript:  
                 st.error(transcript)  
