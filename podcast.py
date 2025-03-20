@@ -18,6 +18,7 @@ import subprocess
 import tempfile  
 from pydub import AudioSegment
 import traceback  
+from faster_whisper import WhisperModel 
 
 
 def initialize_session_state():  
@@ -729,6 +730,27 @@ def add_bgm(audio_segment, bgm_path, bgm_volume):
         st.error(f"BGM追加エラー: {e}")
         return audio_segment
 
+from faster_whisper import WhisperModel  
+  
+@st.cache_data  
+def transcribe_audio_with_whisper(audio_path, language_code):  
+    """  
+    Whisperを使って音声ファイルを文字起こしする関数  
+    Args:  
+        audio_path (str): 音声ファイルのパス  
+        language_code (str): 言語コード（例: "ja-JP"）  
+    Returns:  
+        str: 書き起こしたテキスト  
+    """  
+    try:  
+        model = WhisperModel("base", device="cpu")  
+        segments, info = model.transcribe(audio_path, language=language_code.split('-')[0])  
+          
+        transcript = " ".join([segment.text for segment in segments])  
+        return transcript  
+    except Exception as e:  
+        return f"Whisper 文字起こしエラー: {str(e)}"  
+
 
 with tab1:  
     st.header("音声編集")  
@@ -1011,11 +1033,12 @@ with tab4:
         st.audio(tmp_wav_path)  
   
         with st.spinner('文字起こし中...'):  
-            transcript, error = transcribe_audio_with_julius(tmp_wav_path)  
-            if error:  
-                st.error(f"文字起こしエラー: {error}")  
+            # Whisperを用いた文字起こしを実行  
+            transcript = transcribe_audio_with_whisper(wav_path, language_code)  
+            if "Whisper 文字起こしエラー" in transcript:  
+                st.error(transcript)  
             else:  
-                st.success("文字起こしが完了しました")  
+                st.success("Whisperでの文字起こしが完了しました")  
                 st.text_area("文字起こしの結果", transcript, height=200)  
   
 def cleanup():  
