@@ -1,6 +1,5 @@
 import os  
 import tempfile  
-import time  
 import json  
 import datetime  
 import numpy as np  
@@ -9,15 +8,9 @@ import soundfile as sf
 from pydub import AudioSegment, silence, effects  
 import subprocess  
 import shutil  
-from pathlib import Path  
 import base64  
-import streamlit as st
-import subprocess  
-import tempfile  
-from pydub import AudioSegment
-import traceback  
-from faster_whisper import WhisperModel 
-
+import streamlit as st  
+from faster_whisper import WhisperModel  
 
 def initialize_session_state():  
     """Streamlitのセッション状態を初期化する関数"""  
