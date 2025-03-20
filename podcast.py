@@ -732,39 +732,23 @@ with tab1:
                     # 言語設定  
                     language_code = {"日本語": "ja-JP", "英語": "en-US", "スペイン語": "es-ES"}[preset_settings['language']]  
   
-                    # 文字起こし  
-                    st.session_state.transcripts = []  
+                    # Whisperを用いた文字起こし  
+                    transcript = transcribe_audio_with_whisper(reduced_path, language_code)  
+                    st.session_state.transcripts = [{"start": 0, "end": len(y_reduced) * (1000 // sample_rate), "text": transcript}]  
+  
+                    # フィラーや不要な単語を自動検出（日本語の場合）  
                     unique_keywords = set()  
+                    if preset_settings['language'] == "日本語":  
+                        fillers = ["えーと", "あの", "そのー", "まぁ", "えっと", "あー", "うーん", "えー", "んー", "わかんない"]  
+                        for filler in fillers:  
+                            if filler in transcript.lower():  
+                                unique_keywords.add(filler)  
   
-                    MIN_SEGMENT_LENGTH = 1.5  # 秒単位  
-                    for start, end in segments:  
-                        if (end - start) / 1000 < MIN_SEGMENT_LENGTH:  
-                            continue  
-                        try:  
-                            transcript = transcribe_audio_partial(processed_audio, language_code, start, end, sample_rate)  
-                            st.session_state.transcripts.append({  
-                                "start": start,  
-                                "end": end,  
-                                "text": transcript  
-                            })  
-  
-                            # フィラーや不要な単語を自動検出（日本語の場合）  
-                            if preset_settings['language'] == "日本語":  
-                                fillers = ["えーと", "あの", "そのー", "まぁ", "えっと", "あー", "うーん", "えー", "んー", "わかんない"]  
-                                for filler in fillers:  
-                                    if filler in transcript.lower():  
-                                        unique_keywords.add(filler)  
-  
-                            words = transcript.split()  
-                            for word in words:  
-                                word = word.strip().lower()  
-                                if len(word) > 1:  # 1文字の単語は除外  
-                                    unique_keywords.add(word)  
-  
-                        except Exception as e:  
-                            st.error(f"セグメント {start} - {end} の文字起こしエラー: {e}")  
-                            st.error(traceback.format_exc())  
-                            continue  
+                    words = transcript.split()  
+                    for word in words:  
+                        word = word.strip().lower()  
+                        if len(word) > 1:  # 1文字の単語は除外  
+                            unique_keywords.add(word)  
   
                     # 単語の出現頻度でソート  
                     all_text = " ".join([t["text"].lower() for t in st.session_state.transcripts])  
